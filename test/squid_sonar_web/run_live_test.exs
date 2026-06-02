@@ -44,12 +44,21 @@ defmodule SquidSonarWeb.RunLiveTest do
   end
 
   test "renders run detail through the run context" do
+    deadline = %{
+      status: :overdue,
+      step: "capture_payment",
+      due_at: ~U[2026-05-15 10:15:00Z],
+      due_soon_at: ~U[2026-05-15 10:10:00Z],
+      escalation: %{outcome: :operator_action}
+    }
+
     snapshot =
       snapshot(:running,
         run_id: "run-1",
         workflow: Atom.to_string(CheckoutWorkflow),
         current_step: "capture_payment",
         reason: :attempt_visible,
+        deadline: deadline,
         attempts: [attempt("capture_payment", :claimed, 1, %{"message" => "Gateway unavailable"})],
         planned_runnables: [%{runnable_key: "capture_payment"}],
         anomalies: [%{kind: :stale_projection}]
@@ -62,7 +71,7 @@ defmodule SquidSonarWeb.RunLiveTest do
         current_node_id: "capture_payment",
         nodes: [
           graph_node("load_order", :completed, false),
-          graph_node("capture_payment", :running, true),
+          graph_node("capture_payment", :running, true, deadline: deadline),
           graph_node("send_receipt", :waiting, false)
         ],
         edges: [
@@ -79,9 +88,13 @@ defmodule SquidSonarWeb.RunLiveTest do
         reason: :attempt_visible,
         step: "capture_payment",
         summary: "A dispatch attempt is visible and waiting for a worker claim.",
-        details: %{visible_attempt_count: 1},
-        next_actions: [:wait_for_worker_claim],
-        evidence: %{attempt_counts: %{claimed: 1}}
+        details: %{
+          visible_attempt_count: 1,
+          deadline_status: :overdue,
+          deadline_escalation: %{outcome: :operator_action}
+        },
+        next_actions: [:wait_for_worker_claim, :apply_host_escalation_policy],
+        evidence: %{attempt_counts: %{claimed: 1}, deadline: deadline}
       )
 
     FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
@@ -110,9 +123,15 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert html =~ "Planned runnables"
     assert html =~ "Attempts"
     assert html =~ "Anomalies"
+    assert html =~ "Deadline"
+    assert html =~ "overdue"
+    assert html =~ "operator_action"
+    assert html =~ "2026-05-15T10:15:00Z"
     assert html =~ "Gateway unavailable"
     assert html =~ "wait_for_worker_claim"
+    assert html =~ "apply_host_escalation_policy"
     assert html =~ "squid-sonar-workflow-graph"
+    assert html =~ "squid-sonar-workflow-node-deadline"
     assert html =~ "squid-sonar-workflow-panel-actions"
   end
 

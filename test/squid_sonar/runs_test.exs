@@ -101,6 +101,29 @@ defmodule SquidSonar.RunsTest do
     assert second.status == :failed
   end
 
+  test "projects deadline state from run summaries" do
+    deadline = %{
+      status: :overdue,
+      step: "capture_payment",
+      due_at: ~U[2026-05-15 10:15:00Z],
+      escalation: %{outcome: :diagnostic}
+    }
+
+    FakeSquidMeshClient.put_list_runs(
+      {:ok,
+       [
+         summary(:running,
+           workflow: Atom.to_string(CheckoutWorkflow),
+           deadline: deadline
+         )
+       ]}
+    )
+
+    assert {:ok, [%RunSummary{} = run]} = Runs.list_runs([], client: @client)
+
+    assert run.deadline == deadline
+  end
+
   test "returns client list errors unchanged" do
     FakeSquidMeshClient.put_list_runs({:error, {:missing_config, [:repo]}})
 
@@ -109,14 +132,26 @@ defmodule SquidSonar.RunsTest do
   end
 
   test "gets run detail with journal evidence and explanation" do
+    deadline = %{
+      status: :escalated,
+      step: "capture_payment",
+      due_at: ~U[2026-05-15 10:15:00Z],
+      due_soon_at: ~U[2026-05-15 10:10:00Z],
+      escalated_at: ~U[2026-05-15 10:16:00Z],
+      escalation: %{outcome: :diagnostic}
+    }
+
     snapshot =
       snapshot(:running,
         run_id: "run-2",
         workflow: Atom.to_string(CheckoutWorkflow),
         reason: :attempt_visible,
         current_step: "capture_payment",
+        deadline: deadline,
         attempts: [
-          attempt("capture_payment", :claimed, 1, %{"message" => "gateway unavailable"})
+          attempt("capture_payment", :claimed, 1, %{"message" => "gateway unavailable"},
+            deadline: deadline
+          )
         ],
         planned_runnables: [%{runnable_key: "capture_payment"}],
         anomalies: [%{kind: :stale_projection}]
@@ -130,6 +165,7 @@ defmodule SquidSonar.RunsTest do
         nodes: [
           graph_node("load_order", :completed, false),
           graph_node("capture_payment", :running, true,
+            deadline: deadline,
             recovery: compensation_recovery("ReleaseInventory")
           ),
           graph_node("send_receipt", :waiting, false)
@@ -148,9 +184,14 @@ defmodule SquidSonar.RunsTest do
         reason: :attempt_visible,
         step: "capture_payment",
         summary: "A dispatch attempt is visible and waiting for a worker claim.",
-        details: %{visible_attempt_count: 1, runnable_keys: ["capture_payment"]},
-        next_actions: [:wait_for_worker_claim],
-        evidence: %{attempt_counts: %{claimed: 1}}
+        details: %{
+          visible_attempt_count: 1,
+          runnable_keys: ["capture_payment"],
+          deadline_status: :escalated,
+          deadline_escalation: %{outcome: :diagnostic}
+        },
+        next_actions: [:wait_for_worker_claim, :apply_host_escalation_policy],
+        evidence: %{attempt_counts: %{claimed: 1}, deadline: deadline}
       )
 
     FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
@@ -165,6 +206,7 @@ defmodule SquidSonar.RunsTest do
     assert detail.summary.status == :running
     assert detail.summary.current_step == "capture_payment"
     assert detail.summary.reason == :attempt_visible
+    assert detail.summary.deadline == deadline
     assert detail.summary.thread_revisions == %{run: 3, dispatch: 4}
 
     assert detail.payload == %{"order_id" => "order-1"}
@@ -181,8 +223,10 @@ defmodule SquidSonar.RunsTest do
              "send_receipt"
            ]
 
-    assert Enum.find(detail.workflow_graph.nodes, &(&1.name == "capture_payment")).recovery ==
-             compensation_recovery("ReleaseInventory")
+    capture_node = Enum.find(detail.workflow_graph.nodes, &(&1.name == "capture_payment"))
+
+    assert capture_node.deadline == deadline
+    assert capture_node.recovery == compensation_recovery("ReleaseInventory")
 
     assert Enum.map(detail.workflow_graph.edges, &{&1.from, &1.to, &1.outcome}) == [
              {"load_order", "capture_payment", :ok},
@@ -545,6 +589,7 @@ defmodule SquidSonar.RunsTest do
       indexed_at: @now,
       thread_revision: Keyword.get(attrs, :thread_revision, 7),
       anomalies: Keyword.get(attrs, :anomalies, []),
+      deadline: Keyword.get(attrs, :deadline),
       definition_version: Keyword.get(attrs, :definition_version, 1)
     }
   end

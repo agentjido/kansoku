@@ -6,6 +6,7 @@ defmodule SquidSonar.Dashboard do
   alias SquidSonar.Runs
 
   @statuses [:completed, :failed, :retrying, :paused, :running]
+  @deadline_statuses [:on_time, :due_soon, :overdue, :escalated]
   @default_limit 250
   @default_page_size 10
   @page_sizes [10, 25, 50]
@@ -28,7 +29,7 @@ defmodule SquidSonar.Dashboard do
   defstruct [
     :loaded_at,
     :load_error,
-    filters: %{status: :all, query: ""},
+    filters: %{status: :all, deadline: :all, query: ""},
     filtered_count: 0,
     loaded_count: 0,
     page: 1,
@@ -102,6 +103,7 @@ defmodule SquidSonar.Dashboard do
   defp normalize_filters(filters) do
     %{
       status: normalize_status(filter_value(filters, :status)),
+      deadline: normalize_deadline(filter_value(filters, :deadline)),
       query: normalize_query(filter_value(filters, :query))
     }
   end
@@ -128,6 +130,12 @@ defmodule SquidSonar.Dashboard do
     Enum.find(@statuses, :all, &(to_string(&1) == to_string(status)))
   end
 
+  defp normalize_deadline(deadline) when deadline in [nil, "", :all, "all"], do: :all
+
+  defp normalize_deadline(deadline) do
+    Enum.find(@deadline_statuses, :all, &(to_string(&1) == to_string(deadline)))
+  end
+
   defp normalize_query(nil), do: ""
 
   defp normalize_query(query) do
@@ -139,13 +147,23 @@ defmodule SquidSonar.Dashboard do
   defp filter_runs(runs, filters) do
     runs
     |> Enum.filter(fn run ->
-      status_matches?(run, filters.status) and query_matches?(run, filters.query)
+      status_matches?(run, filters.status) and deadline_matches?(run, filters.deadline) and
+        query_matches?(run, filters.query)
     end)
     |> Enum.sort_by(&sort_value(&1.indexed_at), {:desc, DateTime})
   end
 
   defp status_matches?(_run, :all), do: true
   defp status_matches?(run, status), do: run.status == status
+
+  defp deadline_matches?(_run, :all), do: true
+
+  defp deadline_matches?(run, deadline) do
+    run.deadline
+    |> map_value(:status)
+    |> normalize_deadline()
+    |> Kernel.==(deadline)
+  end
 
   defp query_matches?(_run, ""), do: true
 
@@ -156,11 +174,21 @@ defmodule SquidSonar.Dashboard do
   end
 
   defp searchable_text(run) do
-    [run.id, run.workflow, run.queue, run.status, run.terminal_status]
+    [
+      run.id,
+      run.workflow,
+      run.queue,
+      run.status,
+      run.terminal_status,
+      map_value(run.deadline, :status)
+    ]
     |> Enum.map(&format_search_value/1)
     |> Enum.join(" ")
     |> String.downcase()
   end
+
+  defp map_value(map, key) when is_map(map), do: Map.get(map, key) || Map.get(map, to_string(key))
+  defp map_value(_value, _key), do: nil
 
   defp format_search_value(nil), do: ""
 

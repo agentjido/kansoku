@@ -198,16 +198,31 @@ defmodule SquidSonarWeb.CoreComponents do
         </div>
 
         <div class="squid-sonar-panel-actions">
-          <label class="squid-sonar-search">
-            <span>Search</span>
-            <input
-              type="search"
-              name="filters[query]"
-              value={@dashboard.filters.query}
-              placeholder="Workflow, queue, status, run ID"
-              phx-debounce="250"
-            />
-          </label>
+          <div class="squid-sonar-filter-controls">
+            <label class="squid-sonar-search">
+              <span>Search</span>
+              <input
+                type="search"
+                name="filters[query]"
+                value={@dashboard.filters.query}
+                placeholder="Workflow, queue, status, run ID"
+                phx-debounce="250"
+              />
+            </label>
+
+            <label class="squid-sonar-select-filter">
+              <span>Deadline</span>
+              <select name="filters[deadline]">
+                <option
+                  :for={{value, label} <- deadline_filter_options()}
+                  value={value}
+                  selected={@dashboard.filters.deadline == value}
+                >
+                  {label}
+                </option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <div class="squid-sonar-panel-tools">
@@ -245,6 +260,7 @@ defmodule SquidSonarWeb.CoreComponents do
             <th>Queue</th>
             <th>Status</th>
             <th>Terminal</th>
+            <th>Deadline</th>
             <th>Indexed</th>
           </tr>
         </thead>
@@ -261,6 +277,19 @@ defmodule SquidSonarWeb.CoreComponents do
             <td>{format_value(run.queue)}</td>
             <td><.status_badge status={run.status} /></td>
             <td>{format_value(run.terminal_status)}</td>
+            <td>
+              <div class="squid-sonar-deadline-cell">
+                <span class={[
+                  "squid-sonar-deadline-badge",
+                  "squid-sonar-deadline-badge-#{deadline_status(run.deadline)}"
+                ]}>
+                  {format_deadline_status(deadline_status(run.deadline))}
+                </span>
+                <span :if={deadline_step(run.deadline) != "None"} class="squid-sonar-deadline-meta">
+                  {deadline_step(run.deadline)}
+                </span>
+              </div>
+            </td>
             <td><.timestamp value={run.indexed_at} /></td>
           </tr>
         </tbody>
@@ -368,6 +397,18 @@ defmodule SquidSonarWeb.CoreComponents do
           <.detail_item label="Anomalies" value={length(@detail.anomalies)} />
         </section>
       </div>
+
+      <%= if deadline = @detail.summary.deadline do %>
+        <section class="squid-sonar-detail-panel squid-sonar-deadline-panel">
+          <h3>Deadline</h3>
+          <.detail_item label="State" value={format_deadline_status(deadline_status(deadline))} />
+          <.detail_item label="Step" value={deadline_step(deadline)} />
+          <.detail_item label="Due at" value={deadline_time(deadline, :due_at)} />
+          <.detail_item label="Due soon at" value={deadline_time(deadline, :due_soon_at)} />
+          <.detail_item label="Escalated at" value={deadline_time(deadline, :escalated_at)} />
+          <.detail_item label="Escalation" value={deadline_escalation(deadline)} />
+        </section>
+      <% end %>
 
       <section
         :if={@detail.recovery_policies != []}
@@ -541,6 +582,21 @@ defmodule SquidSonarWeb.CoreComponents do
                       </div>
                     </div>
                   <% end %>
+                  <%= if deadline = deadline_state(item.node) do %>
+                    <div
+                      class={[
+                        "squid-sonar-workflow-node-deadline",
+                        "squid-sonar-workflow-node-deadline-#{deadline_status(deadline)}"
+                      ]}
+                      title={"Deadline #{format_deadline_status(deadline_status(deadline))}"}
+                    >
+                      <span class="squid-sonar-workflow-node-deadline-label">Deadline</span>
+                      <div class="squid-sonar-workflow-node-deadline-meta">
+                        <strong>{format_deadline_status(deadline_status(deadline))}</strong>
+                        <em>{deadline_time(deadline, :due_at)}</em>
+                      </div>
+                    </div>
+                  <% end %>
                 </article>
               </div>
             </div>
@@ -623,6 +679,59 @@ defmodule SquidSonarWeb.CoreComponents do
   end
 
   defp format_time(value), do: to_string(value)
+
+  defp deadline_filter_options do
+    [
+      {:all, "All deadlines"},
+      {:on_time, "On time"},
+      {:due_soon, "Due soon"},
+      {:overdue, "Overdue"},
+      {:escalated, "Escalated"}
+    ]
+  end
+
+  defp deadline_state(%{deadline: deadline}) when is_map(deadline), do: deadline
+  defp deadline_state(_node), do: nil
+
+  defp deadline_status(deadline) do
+    case map_value(deadline, :status) do
+      status when status in [:on_time, :due_soon, :overdue, :escalated] -> status
+      "on_time" -> :on_time
+      "due_soon" -> :due_soon
+      "overdue" -> :overdue
+      "escalated" -> :escalated
+      _status -> :none
+    end
+  end
+
+  defp deadline_step(deadline), do: format_step(map_value(deadline, :step))
+
+  defp deadline_time(deadline, key) do
+    case map_value(deadline, key) do
+      nil -> "None"
+      value -> format_time(value)
+    end
+  end
+
+  defp deadline_escalation(deadline) do
+    case map_value(deadline, :escalation) do
+      escalation when is_map(escalation) ->
+        escalation
+        |> map_value(:outcome)
+        |> format_value()
+
+      escalation ->
+        format_value(escalation)
+    end
+  end
+
+  defp format_deadline_status(:none), do: "None"
+
+  defp format_deadline_status(status) do
+    status
+    |> format_value()
+    |> String.replace("_", " ")
+  end
 
   defp run_path(prefix, run_id), do: "#{prefix}/runs/#{run_id}"
 
@@ -900,9 +1009,11 @@ defmodule SquidSonarWeb.CoreComponents do
 
   defp manual_state_from_evidence(_evidence), do: nil
 
-  defp map_value(map, key) when is_atom(key) do
+  defp map_value(map, key) when is_map(map) and is_atom(key) do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))
   end
+
+  defp map_value(_value, _key), do: nil
 
   defp normalize_manual_kind(kind) when is_atom(kind), do: Atom.to_string(kind)
   defp normalize_manual_kind(kind) when is_binary(kind), do: kind

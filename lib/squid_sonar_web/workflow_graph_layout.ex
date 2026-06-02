@@ -4,6 +4,8 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   @node_width 210
   @node_height 58
   @recovery_node_height 112
+  @deadline_node_height 118
+  @deadline_recovery_node_height 172
   @column_gap 72
   @row_gap 42
   @padding_x 24
@@ -122,12 +124,22 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   end
 
   defp track_height(nodes) do
-    if Enum.any?(nodes, &recovery_node?/1), do: @recovery_node_height, else: @node_height
+    nodes
+    |> Enum.map(&node_height/1)
+    |> Enum.max(fn -> @node_height end)
   end
 
   defp node_height(node) do
-    if recovery_node?(node), do: @recovery_node_height, else: @node_height
+    cond do
+      deadline_node?(node) and recovery_node?(node) -> @deadline_recovery_node_height
+      deadline_node?(node) -> @deadline_node_height
+      recovery_node?(node) -> @recovery_node_height
+      true -> @node_height
+    end
   end
+
+  defp deadline_node?(%{deadline: deadline}) when is_map(deadline), do: true
+  defp deadline_node?(_node), do: false
 
   defp recovery_node?(%{recovery: recovery}) when is_map(recovery) do
     case Map.get(recovery, :compensation) || Map.get(recovery, "compensation") do

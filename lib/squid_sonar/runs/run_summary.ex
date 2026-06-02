@@ -11,6 +11,7 @@ defmodule SquidSonar.Runs.RunSummary do
           queue: String.t(),
           status: atom() | nil,
           terminal_status: atom() | nil,
+          deadline: map() | nil,
           indexed_at: DateTime.t() | NaiveDateTime.t() | nil,
           thread_revision: non_neg_integer() | nil,
           anomalies: [map()]
@@ -22,6 +23,7 @@ defmodule SquidSonar.Runs.RunSummary do
     :queue,
     :status,
     :terminal_status,
+    :deadline,
     :indexed_at,
     :thread_revision,
     anomalies: []
@@ -36,6 +38,7 @@ defmodule SquidSonar.Runs.RunSummary do
       queue: summary.queue,
       status: summary.status,
       terminal_status: summary.terminal_status,
+      deadline: summary.deadline,
       indexed_at: summary.indexed_at,
       thread_revision: summary.thread_revision,
       anomalies: List.wrap(summary.anomalies)

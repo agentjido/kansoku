@@ -106,6 +106,34 @@ defmodule SquidSonar.DashboardTest do
     assert [%{status: :running, queue: "capture-payment"}] = dashboard.runs
   end
 
+  test "filters runs by deadline state" do
+    FakeSquidMeshClient.put_list_runs(
+      {:ok,
+       [
+         summary(:running,
+           run_id: "due-soon-run",
+           deadline: %{status: :due_soon, step: "capture_payment"}
+         ),
+         summary(:running,
+           run_id: "escalated-run",
+           deadline: %{status: :escalated, step: "manual_review"}
+         ),
+         summary(:completed, run_id: "completed-run", deadline: nil)
+       ]}
+    )
+
+    dashboard =
+      Dashboard.load(
+        client: FakeSquidMeshClient,
+        loaded_at: @loaded_at,
+        filters: %{"deadline" => "escalated"}
+      )
+
+    assert dashboard.filters.deadline == :escalated
+    assert Enum.map(dashboard.runs, & &1.id) == ["escalated-run"]
+    assert dashboard.filtered_count == 1
+  end
+
   test "keeps error state at the dashboard boundary" do
     FakeSquidMeshClient.put_list_runs({:error, {:missing_config, [:repo]}})
 
@@ -127,6 +155,7 @@ defmodule SquidSonar.DashboardTest do
       indexed_at: Keyword.get(attrs, :indexed_at, @loaded_at),
       thread_revision: Keyword.get(attrs, :thread_revision, 7),
       anomalies: Keyword.get(attrs, :anomalies, []),
+      deadline: Keyword.get(attrs, :deadline),
       definition_version: Keyword.get(attrs, :definition_version, 1)
     }
   end

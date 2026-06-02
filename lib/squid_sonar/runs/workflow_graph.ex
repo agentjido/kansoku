@@ -16,10 +16,11 @@ defmodule SquidSonar.Runs.WorkflowGraph do
             status: atom(),
             current?: boolean(),
             terminal?: boolean(),
+            deadline: map() | nil,
             recovery: map() | nil
           }
 
-    defstruct [:name, :label, :status, :recovery, current?: false, terminal?: false]
+    defstruct [:name, :label, :status, :deadline, :recovery, current?: false, terminal?: false]
   end
 
   defmodule Edge do
@@ -79,6 +80,7 @@ defmodule SquidSonar.Runs.WorkflowGraph do
       name: id,
       label: format_name(id),
       status: status,
+      deadline: Map.get(node, :deadline),
       recovery: Map.get(node, :recovery) || definition_recovery(definition, id),
       current?: current?,
       terminal?: terminal_node?(id, status)

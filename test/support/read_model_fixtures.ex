@@ -29,6 +29,7 @@ defmodule SquidSonar.ReadModelFixtures do
       visible_attempts: Keyword.get(attrs, :visible_attempts, []),
       scheduled_attempts: Keyword.get(attrs, :scheduled_attempts, []),
       next_visible_at: Keyword.get(attrs, :next_visible_at),
+      deadline: Keyword.get(attrs, :deadline),
       expired_claims: Keyword.get(attrs, :expired_claims, []),
       attempts: Keyword.get(attrs, :attempts, []),
       anomalies: Keyword.get(attrs, :anomalies, []),
@@ -79,6 +80,7 @@ defmodule SquidSonar.ReadModelFixtures do
       input: Keyword.get(attrs, :input),
       output: Keyword.get(attrs, :output),
       error: Keyword.get(attrs, :error),
+      deadline: Keyword.get(attrs, :deadline),
       recovery: Keyword.get(attrs, :recovery),
       transition: Keyword.get(attrs, :transition),
       manual_state: Keyword.get(attrs, :manual_state),
@@ -133,6 +135,7 @@ defmodule SquidSonar.ReadModelFixtures do
       attempt_number: attempt_number,
       error: error
     }
+    |> maybe_put(:deadline, Keyword.get(attrs, :deadline))
     |> maybe_put(:recovery, Keyword.get(attrs, :recovery))
   end
 

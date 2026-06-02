@@ -84,9 +84,15 @@ The UI includes:
   rollback policy information
 - Recovery policy summaries that distinguish declared rollback callbacks,
   non-compensatable steps, and manual-review replay boundaries
+- Deadline and escalation evidence when Squid Mesh exposes step SLA state,
+  including due-soon, overdue, and escalated run filters
 - Step attempt counts on run detail pages
 - Light, dark, and system theme controls
 - Embedded CSS and JavaScript served by the library
+
+SquidSonar only displays deadline and escalation state returned by Squid Mesh.
+Alert delivery, notification routing, paging rules, and escalation side effects
+remain host-application responsibilities.
 
 ## Requirements
 

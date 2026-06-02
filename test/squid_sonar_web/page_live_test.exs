@@ -97,6 +97,43 @@ defmodule SquidSonarWeb.PageLiveTest do
     refute html =~ "completed_checkout"
   end
 
+  test "renders and filters deadline states" do
+    FakeSquidMeshClient.put_list_runs(
+      {:ok,
+       [
+         summary(:running, "due_soon_checkout", "default",
+           deadline: %{status: :due_soon, step: "capture_payment"}
+         ),
+         summary(:running, "escalated_checkout", "ops",
+           deadline: %{status: :escalated, step: "manual_review"}
+         )
+       ]}
+    )
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+
+    html =
+      socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Deadline"
+    assert html =~ "due soon"
+    assert html =~ "escalated"
+    assert html =~ "capture_payment"
+
+    {:noreply, socket} =
+      PageLive.handle_event("filter", %{"filters" => %{"deadline" => "escalated"}}, socket)
+
+    html =
+      socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "escalated_checkout"
+    refute html =~ "due_soon_checkout"
+  end
+
   test "paginates runs through the dashboard boundary" do
     runs =
       for index <- 1..12 do
@@ -189,6 +226,7 @@ defmodule SquidSonarWeb.PageLiveTest do
       indexed_at: Keyword.get(attrs, :indexed_at, ~U[2026-05-15 10:00:00Z]),
       thread_revision: Keyword.get(attrs, :thread_revision, 7),
       anomalies: [],
+      deadline: Keyword.get(attrs, :deadline),
       definition_version: Keyword.get(attrs, :definition_version, 1)
     }
   end

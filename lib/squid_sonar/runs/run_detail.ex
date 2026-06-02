@@ -20,6 +20,7 @@ defmodule SquidSonar.Runs.RunDetail do
             reason: atom(),
             terminal?: boolean(),
             terminal_status: atom() | nil,
+            deadline: map() | nil,
             thread_revisions: %{run: non_neg_integer(), dispatch: non_neg_integer()}
           }
 
@@ -32,6 +33,7 @@ defmodule SquidSonar.Runs.RunDetail do
       :reason,
       :terminal?,
       :terminal_status,
+      :deadline,
       :thread_revisions
     ]
 
@@ -44,6 +46,7 @@ defmodule SquidSonar.Runs.RunDetail do
       :reason,
       :terminal?,
       :terminal_status,
+      :deadline,
       :thread_revisions
     ]
   end
@@ -130,6 +133,7 @@ defmodule SquidSonar.Runs.RunDetail do
       reason: snapshot.reason,
       terminal?: snapshot.terminal?,
       terminal_status: snapshot.terminal_status,
+      deadline: snapshot.deadline,
       thread_revisions: snapshot.thread_revisions
     }
   end
