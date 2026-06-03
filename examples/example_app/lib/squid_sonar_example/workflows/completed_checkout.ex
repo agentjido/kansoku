@@ -1,7 +1,7 @@
 defmodule SquidSonarExample.Workflows.CompletedCheckout do
   @moduledoc false
 
-  use SquidMesh.Workflow
+  use Squidie.Workflow
 
   workflow do
     trigger :completed_checkout do

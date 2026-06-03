@@ -7,7 +7,7 @@ labels: bug
 ## Environment
 
 - SquidSonar version or commit:
-- Squid Mesh version or commit:
+- Squidie version or commit:
 - Elixir and Erlang/OTP versions:
 - Phoenix version:
 - Operating system:

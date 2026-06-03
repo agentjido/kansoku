@@ -39,13 +39,13 @@ defmodule SquidSonarExample.MixProject do
       {:bandit, "~> 1.7"},
       {:ecto_sql, "~> 3.13"},
       {:postgrex, "~> 0.20"},
-      squid_mesh_dep(),
+      squidie_dep(),
       {:squid_sonar, path: "../.."}
     ]
   end
 
-  defp squid_mesh_dep do
-    {:squid_mesh, github: "dark-trench/squid_mesh", branch: "main"}
+  defp squidie_dep do
+    {:squidie, github: "dark-trench/squidie", branch: "main"}
   end
 
   defp aliases do

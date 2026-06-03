@@ -1,7 +1,7 @@
 defmodule SquidSonarExample.Workflows.FailingCheckout do
   @moduledoc false
 
-  use SquidMesh.Workflow
+  use Squidie.Workflow
 
   workflow do
     trigger :failing_checkout do

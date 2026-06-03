@@ -1,7 +1,7 @@
 defmodule SquidSonarExample.Workflows.RetryingCheckout do
   @moduledoc false
 
-  use SquidMesh.Workflow
+  use Squidie.Workflow
 
   workflow do
     trigger :retrying_checkout do

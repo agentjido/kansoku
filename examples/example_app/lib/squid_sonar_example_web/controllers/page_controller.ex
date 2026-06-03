@@ -12,7 +12,7 @@ defmodule SquidSonarExampleWeb.PageController do
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 32px;">
         <h1>SquidSonar Example</h1>
-        <p>Use this app to exercise Squid Mesh workflows and monitor them in SquidSonar.</p>
+        <p>Use this app to exercise Squidie workflows and monitor them in SquidSonar.</p>
         <p><a href="/sonar">Open SquidSonar</a></p>
       </body>
     </html>

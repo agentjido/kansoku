@@ -1,7 +1,7 @@
 defmodule SquidSonarExample.Workflows.ManualReviewCheckout do
   @moduledoc false
 
-  use SquidMesh.Workflow
+  use Squidie.Workflow
 
   workflow do
     trigger :manual_review_checkout do

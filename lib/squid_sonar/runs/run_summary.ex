@@ -3,7 +3,7 @@ defmodule SquidSonar.Runs.RunSummary do
   Compact run projection for list and dashboard views.
   """
 
-  alias SquidMesh.ReadModel.Listing.Summary
+  alias Squidie.ReadModel.Listing.Summary
 
   @type t :: %__MODULE__{
           id: String.t(),

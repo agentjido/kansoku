@@ -4,7 +4,7 @@ defmodule SquidSonar.RunsTest do
   import SquidSonar.ReadModelFixtures
 
   defmodule CheckoutWorkflow do
-    use SquidMesh.Workflow
+    use Squidie.Workflow
 
     workflow do
       trigger :manual do
@@ -22,7 +22,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   defmodule ReleaseInventory do
-    use SquidMesh.Step,
+    use Squidie.Step,
       name: :release_inventory,
       input_schema: [
         step: [type: :map, required: true]
@@ -33,7 +33,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   defmodule CompensatingWorkflow do
-    use SquidMesh.Workflow
+    use Squidie.Workflow
 
     workflow do
       trigger :manual do
@@ -53,7 +53,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   defmodule DependencyWorkflow do
-    use SquidMesh.Workflow
+    use Squidie.Workflow
 
     workflow do
       trigger :manual do
@@ -69,17 +69,17 @@ defmodule SquidSonar.RunsTest do
   defmodule MissingWorkflow do
   end
 
-  alias SquidMesh.ReadModel.Listing.Summary
-  alias SquidSonar.FakeSquidMeshClient
+  alias Squidie.ReadModel.Listing.Summary
+  alias SquidSonar.FakeSquidieClient
   alias SquidSonar.Runs
   alias SquidSonar.Runs.RunDetail
   alias SquidSonar.Runs.RunSummary
 
-  @client FakeSquidMeshClient
+  @client FakeSquidieClient
   @now ~U[2026-05-15 10:00:00Z]
 
   test "lists run summaries through the configured client" do
-    FakeSquidMeshClient.put_list_runs(
+    FakeSquidieClient.put_list_runs(
       {:ok,
        [
          summary(:running, workflow: Atom.to_string(CheckoutWorkflow), queue: "default"),
@@ -109,7 +109,7 @@ defmodule SquidSonar.RunsTest do
       escalation: %{outcome: :diagnostic}
     }
 
-    FakeSquidMeshClient.put_list_runs(
+    FakeSquidieClient.put_list_runs(
       {:ok,
        [
          summary(:running,
@@ -125,7 +125,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   test "returns client list errors unchanged" do
-    FakeSquidMeshClient.put_list_runs({:error, {:missing_config, [:repo]}})
+    FakeSquidieClient.put_list_runs({:error, {:missing_config, [:repo]}})
 
     assert {:error, {:missing_config, [:repo]}} =
              Runs.list_runs([], client: @client)
@@ -194,9 +194,9 @@ defmodule SquidSonar.RunsTest do
         evidence: %{attempt_counts: %{claimed: 1}, deadline: deadline}
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
     assert {:ok, %RunDetail{} = detail} = Runs.get_run("run-2", client: @client)
 
@@ -257,10 +257,10 @@ defmodule SquidSonar.RunsTest do
         ]
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
 
-    FakeSquidMeshClient.put_explain_run(
+    FakeSquidieClient.put_explain_run(
       {:ok,
        diagnostic(:failed,
          run_id: "run-recovery-definition",
@@ -325,9 +325,9 @@ defmodule SquidSonar.RunsTest do
         evidence: policies
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
     assert {:ok, %RunDetail{} = detail} =
              Runs.get_run("run-recovery-policies", client: @client)
@@ -404,9 +404,9 @@ defmodule SquidSonar.RunsTest do
         evidence: %{attempt_counts: %{claimed: 1}}
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
     assert {:ok, %RunDetail{} = detail} = Runs.get_run("run-dependency", client: @client)
 
@@ -456,9 +456,9 @@ defmodule SquidSonar.RunsTest do
         evidence: %{terminal_status: :completed}
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
     assert {:ok, %RunDetail{} = detail} = Runs.get_run("run-history", client: @client)
 
@@ -471,7 +471,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   test "returns inspect errors before explaining the run" do
-    FakeSquidMeshClient.put_inspect_run({:error, :invalid_run_id})
+    FakeSquidieClient.put_inspect_run({:error, :invalid_run_id})
 
     assert {:error, :invalid_run_id} = Runs.get_run("bad", client: @client)
   end
@@ -480,9 +480,9 @@ defmodule SquidSonar.RunsTest do
     snapshot = snapshot(:running, workflow: Atom.to_string(CheckoutWorkflow))
     graph = graph_inspection(:running, workflow: Atom.to_string(CheckoutWorkflow))
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:error, :not_found})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:error, :not_found})
 
     assert {:error, :not_found} = Runs.get_run("run-3", client: @client)
   end
@@ -491,7 +491,7 @@ defmodule SquidSonar.RunsTest do
     snapshot =
       snapshot(:cancelled, workflow: Atom.to_string(CheckoutWorkflow), reason: :cancelled)
 
-    FakeSquidMeshClient.put_cancel({:ok, snapshot})
+    FakeSquidieClient.put_cancel({:ok, snapshot})
 
     assert {:ok, updated_snapshot} = Runs.cancel_run("run-1", client: @client)
     assert updated_snapshot.run_id == "run-cancelled"
@@ -499,7 +499,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   test "returns cancel errors unchanged" do
-    FakeSquidMeshClient.put_cancel({:error, :invalid_run_id})
+    FakeSquidieClient.put_cancel({:error, :invalid_run_id})
 
     assert {:error, :invalid_run_id} = Runs.cancel_run("bad", client: @client)
   end
@@ -508,7 +508,7 @@ defmodule SquidSonar.RunsTest do
     snapshot =
       snapshot(:running, workflow: Atom.to_string(CheckoutWorkflow), reason: :attempt_visible)
 
-    FakeSquidMeshClient.put_resume({:ok, snapshot})
+    FakeSquidieClient.put_resume({:ok, snapshot})
 
     assert {:ok, updated_snapshot} = Runs.resume_run("run-1", %{}, client: @client)
     assert updated_snapshot.run_id == "run-running"
@@ -516,7 +516,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   test "returns resume errors unchanged" do
-    FakeSquidMeshClient.put_resume({:error, :not_found})
+    FakeSquidieClient.put_resume({:error, :not_found})
 
     assert {:error, :not_found} = Runs.resume_run("missing", %{}, client: @client)
   end
@@ -525,7 +525,7 @@ defmodule SquidSonar.RunsTest do
     snapshot =
       snapshot(:running, workflow: Atom.to_string(CheckoutWorkflow), reason: :attempt_visible)
 
-    FakeSquidMeshClient.put_approve({:ok, snapshot})
+    FakeSquidieClient.put_approve({:ok, snapshot})
 
     assert {:ok, updated_snapshot} =
              Runs.approve_run("run-1", %{"approved_by" => "admin"}, client: @client)
@@ -535,7 +535,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   test "returns approve errors unchanged" do
-    FakeSquidMeshClient.put_approve({:error, :not_found})
+    FakeSquidieClient.put_approve({:error, :not_found})
 
     assert {:error, :not_found} = Runs.approve_run("missing", %{}, client: @client)
   end
@@ -543,7 +543,7 @@ defmodule SquidSonar.RunsTest do
   test "rejects a paused approval step" do
     snapshot = snapshot(:failed, workflow: Atom.to_string(CheckoutWorkflow), reason: :terminal)
 
-    FakeSquidMeshClient.put_reject({:ok, snapshot})
+    FakeSquidieClient.put_reject({:ok, snapshot})
 
     assert {:ok, updated_snapshot} =
              Runs.reject_run("run-1", %{"rejected_by" => "admin"}, client: @client)
@@ -553,7 +553,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   test "returns reject errors unchanged" do
-    FakeSquidMeshClient.put_reject({:error, :not_found})
+    FakeSquidieClient.put_reject({:error, :not_found})
 
     assert {:error, :not_found} = Runs.reject_run("missing", %{}, client: @client)
   end
@@ -562,7 +562,7 @@ defmodule SquidSonar.RunsTest do
     snapshot =
       snapshot(:running, workflow: Atom.to_string(CheckoutWorkflow), reason: :attempt_visible)
 
-    FakeSquidMeshClient.put_replay({:ok, snapshot})
+    FakeSquidieClient.put_replay({:ok, snapshot})
 
     assert {:ok, updated_snapshot} = Runs.replay_run("run-1", client: @client)
     assert updated_snapshot.run_id == "run-running"
@@ -570,7 +570,7 @@ defmodule SquidSonar.RunsTest do
   end
 
   test "returns replay errors unchanged" do
-    FakeSquidMeshClient.put_replay({:error, {:unsafe_replay, :irreversible_step}})
+    FakeSquidieClient.put_replay({:error, {:unsafe_replay, :irreversible_step}})
 
     assert {:error, {:unsafe_replay, :irreversible_step}} =
              Runs.replay_run("run-1", client: @client)

@@ -4,7 +4,7 @@ defmodule SquidSonarWeb.RunLiveTest do
   import SquidSonar.ReadModelFixtures
 
   defmodule CheckoutWorkflow do
-    use SquidMesh.Workflow
+    use Squidie.Workflow
 
     workflow do
       trigger :manual do
@@ -27,18 +27,18 @@ defmodule SquidSonarWeb.RunLiveTest do
   import Phoenix.LiveViewTest
 
   alias Phoenix.LiveView.Socket
-  alias SquidSonar.FakeSquidMeshClient
+  alias SquidSonar.FakeSquidieClient
   alias SquidSonarWeb.RunLive
 
   setup do
-    previous_client = Application.get_env(:squid_sonar, :squid_mesh_client)
-    Application.put_env(:squid_sonar, :squid_mesh_client, FakeSquidMeshClient)
+    previous_client = Application.get_env(:squid_sonar, :squidie_client)
+    Application.put_env(:squid_sonar, :squidie_client, FakeSquidieClient)
 
     on_exit(fn ->
       if previous_client do
-        Application.put_env(:squid_sonar, :squid_mesh_client, previous_client)
+        Application.put_env(:squid_sonar, :squidie_client, previous_client)
       else
-        Application.delete_env(:squid_sonar, :squid_mesh_client)
+        Application.delete_env(:squid_sonar, :squidie_client)
       end
     end)
   end
@@ -97,9 +97,9 @@ defmodule SquidSonarWeb.RunLiveTest do
         evidence: %{attempt_counts: %{claimed: 1}, deadline: deadline}
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
     {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
     {:noreply, socket} = RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", socket)
@@ -164,11 +164,11 @@ defmodule SquidSonarWeb.RunLiveTest do
         next_actions: [:wait_for_worker_claim]
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
-    FakeSquidMeshClient.put_cancel(
+    FakeSquidieClient.put_cancel(
       {:ok, snapshot(:cancelled, run_id: "run-1", workflow: Atom.to_string(CheckoutWorkflow))}
     )
 
@@ -222,7 +222,7 @@ defmodule SquidSonarWeb.RunLiveTest do
         reason: :terminal
       )
 
-    FakeSquidMeshClient.put_inspect_run(fn
+    FakeSquidieClient.put_inspect_run(fn
       "run-approval", _opts ->
         count = Process.get(:refresh_run_inspections, 0)
         Process.put(:refresh_run_inspections, count + 1)
@@ -234,7 +234,7 @@ defmodule SquidSonarWeb.RunLiveTest do
         end
     end)
 
-    FakeSquidMeshClient.put_inspect_run_graph(fn run_id, _opts ->
+    FakeSquidieClient.put_inspect_run_graph(fn run_id, _opts ->
       {:ok,
        graph_inspection(:running,
          run_id: run_id,
@@ -244,7 +244,7 @@ defmodule SquidSonarWeb.RunLiveTest do
        )}
     end)
 
-    FakeSquidMeshClient.put_explain_run(fn run_id, _opts ->
+    FakeSquidieClient.put_explain_run(fn run_id, _opts ->
       {:ok,
        diagnostic(:running,
          run_id: run_id,
@@ -255,7 +255,7 @@ defmodule SquidSonarWeb.RunLiveTest do
        )}
     end)
 
-    FakeSquidMeshClient.put_approve({:ok, running_snapshot})
+    FakeSquidieClient.put_approve({:ok, running_snapshot})
 
     {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
 
@@ -313,9 +313,9 @@ defmodule SquidSonarWeb.RunLiveTest do
         evidence: %{manual_state: manual_state}
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
     {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
 
@@ -366,11 +366,11 @@ defmodule SquidSonarWeb.RunLiveTest do
         next_actions: [:resolve_manual_step]
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
-    FakeSquidMeshClient.put_approve(fn run_id, attrs, _opts ->
+    FakeSquidieClient.put_approve(fn run_id, attrs, _opts ->
       send(parent, {:approve_attrs, run_id, attrs})
       {:ok, snapshot(:running, run_id: run_id, workflow: Atom.to_string(CheckoutWorkflow))}
     end)
@@ -415,10 +415,10 @@ defmodule SquidSonarWeb.RunLiveTest do
         next_actions: [:wait_for_worker_claim]
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
-    FakeSquidMeshClient.put_cancel({:error, {:missing_config, [:repo]}})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_cancel({:error, {:missing_config, [:repo]}})
 
     {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
     {:noreply, socket} = RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", socket)
@@ -470,12 +470,12 @@ defmodule SquidSonarWeb.RunLiveTest do
         next_actions: [:inspect_terminal_run]
       )
 
-    FakeSquidMeshClient.put_inspect_run(fn
+    FakeSquidieClient.put_inspect_run(fn
       "run-1", _opts -> {:ok, source_snapshot}
       "run-2", _opts -> {:ok, replayed_snapshot}
     end)
 
-    FakeSquidMeshClient.put_inspect_run_graph(fn
+    FakeSquidieClient.put_inspect_run_graph(fn
       "run-1", _opts ->
         {:ok, graph}
 
@@ -491,7 +491,7 @@ defmodule SquidSonarWeb.RunLiveTest do
          )}
     end)
 
-    FakeSquidMeshClient.put_explain_run(fn
+    FakeSquidieClient.put_explain_run(fn
       "run-1", _opts ->
         {:ok, explanation}
 
@@ -509,7 +509,7 @@ defmodule SquidSonarWeb.RunLiveTest do
     {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
     {:noreply, socket} = RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", socket)
 
-    FakeSquidMeshClient.put_replay({:ok, replayed_snapshot})
+    FakeSquidieClient.put_replay({:ok, replayed_snapshot})
 
     {:noreply, socket} = RunLive.handle_event("replay", %{"run-id" => "run-1"}, socket)
 
@@ -557,9 +557,9 @@ defmodule SquidSonarWeb.RunLiveTest do
         evidence: %{terminal_status: :completed}
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
     {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
 
@@ -619,9 +619,9 @@ defmodule SquidSonarWeb.RunLiveTest do
         evidence: recovery_policy_evidence("capture_payment", recovery)
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
     {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
 
@@ -706,9 +706,9 @@ defmodule SquidSonarWeb.RunLiveTest do
           })
       )
 
-    FakeSquidMeshClient.put_inspect_run({:ok, snapshot})
-    FakeSquidMeshClient.put_inspect_run_graph({:ok, graph})
-    FakeSquidMeshClient.put_explain_run({:ok, explanation})
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
 
     {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
 
@@ -737,12 +737,12 @@ defmodule SquidSonarWeb.RunLiveTest do
   end
 
   test "does not render an empty recovery policy section" do
-    FakeSquidMeshClient.put_inspect_run(
+    FakeSquidieClient.put_inspect_run(
       {:ok,
        snapshot(:running, run_id: "run-no-recovery", workflow: Atom.to_string(CheckoutWorkflow))}
     )
 
-    FakeSquidMeshClient.put_inspect_run_graph(
+    FakeSquidieClient.put_inspect_run_graph(
       {:ok,
        graph_inspection(:running,
          run_id: "run-no-recovery",
@@ -750,7 +750,7 @@ defmodule SquidSonarWeb.RunLiveTest do
        )}
     )
 
-    FakeSquidMeshClient.put_explain_run(
+    FakeSquidieClient.put_explain_run(
       {:ok,
        diagnostic(:running,
          run_id: "run-no-recovery",
@@ -771,7 +771,7 @@ defmodule SquidSonarWeb.RunLiveTest do
   end
 
   test "renders load errors without leaking internal reason details" do
-    FakeSquidMeshClient.put_inspect_run({:error, {:missing_config, [:repo]}})
+    FakeSquidieClient.put_inspect_run({:error, {:missing_config, [:repo]}})
 
     {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
     {:noreply, socket} = RunLive.handle_params(%{"id" => "bad"}, "/sonar/runs/bad", socket)

@@ -13,8 +13,8 @@ config :squid_sonar_example, SquidSonarExampleWeb.Endpoint,
   pubsub_server: SquidSonarExample.PubSub,
   live_view: [signing_salt: "squid-sonar-example"]
 
-config :squid_mesh,
+config :squidie,
   repo: SquidSonarExample.Repo,
-  executor: SquidSonarExample.SquidMeshExecutor
+  executor: SquidSonarExample.SquidieExecutor
 
 import_config "#{config_env()}.exs"

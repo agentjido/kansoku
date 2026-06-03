@@ -1,7 +1,7 @@
 defmodule SquidSonarExample.Workflows.PausedCheckout do
   @moduledoc false
 
-  use SquidMesh.Workflow
+  use Squidie.Workflow
 
   workflow do
     trigger :paused_checkout do

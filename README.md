@@ -18,7 +18,7 @@
 </div>
 
 SquidSonar is a read-only Phoenix LiveView dashboard for applications that run
-Squid Mesh workflows.
+Squidie workflows.
 
 Mount it inside a Phoenix host application to inspect recent runs, filter by
 status, search runtime metadata, and open detail pages with the workflow graph,
@@ -31,34 +31,34 @@ diagnosis, attempt counts, history counts, and last error information.
 
 SquidSonar is distributed as an embeddable library, not a standalone service. A
 host Phoenix application owns authentication, authorization, deployment,
-endpoint configuration, and the Squid Mesh runtime. SquidSonar contributes the
+endpoint configuration, and the Squidie runtime. SquidSonar contributes the
 router macro, LiveViews, static assets, and a small read boundary over Squid
 Mesh public APIs.
 
-SquidSonar interacts with Squid Mesh through:
+SquidSonar interacts with Squidie through:
 
 ### Read Operations
-- `SquidMesh.list_runs/2`
-- `SquidMesh.inspect_run/2`
-- `SquidMesh.inspect_run_graph/2`
-- `SquidMesh.explain_run/2`
+- `Squidie.list_runs/2`
+- `Squidie.inspect_run/2`
+- `Squidie.inspect_run_graph/2`
+- `Squidie.explain_run/2`
 
 ### Control Operations
-- `SquidMesh.cancel/2` - Cancel running workflows
-- `SquidMesh.resume/3` - Resume paused workflows
-- `SquidMesh.approve/3` - Approve manual approval steps
-- `SquidMesh.reject/3` - Reject manual approval steps
-- `SquidMesh.replay/2` - Replay completed workflows
+- `Squidie.cancel/2` - Cancel running workflows
+- `Squidie.resume/3` - Resume paused workflows
+- `Squidie.approve/3` - Approve manual approval steps
+- `Squidie.reject/3` - Reject manual approval steps
+- `Squidie.replay/2` - Replay completed workflows
 
 Host applications still own workers, queue delivery, scheduler
-setup, and backend leasing or fencing. When a Squid Mesh host uses Bedrock or
+setup, and backend leasing or fencing. When a Squidie host uses Bedrock or
 another delivery backend, that adapter remains part of the host application, not
 SquidSonar.
 
 ```text
 Phoenix Host Application
 |
-+-- Squid Mesh runtime
++-- Squidie runtime
 |   +-- workers
 |   +-- scheduler and delivery backend
 |   +-- lease or fencing adapter when needed
@@ -67,7 +67,7 @@ Phoenix Host Application
     +-- router macro
     +-- read-only LiveViews
     +-- embedded assets
-    +-- Squid Mesh inspection API client
+    +-- Squidie inspection API client
 ```
 
 ## Dashboard Surface
@@ -80,17 +80,17 @@ The UI includes:
 - Page size controls and pagination
 - Run detail pages with diagnosis, history counts, last error, and workflow
   graph visualization
-- Recovery metadata on compensatable graph nodes when Squid Mesh exposes
+- Recovery metadata on compensatable graph nodes when Squidie exposes
   rollback policy information
 - Recovery policy summaries that distinguish declared rollback callbacks,
   non-compensatable steps, and manual-review replay boundaries
-- Deadline and escalation evidence when Squid Mesh exposes step SLA state,
+- Deadline and escalation evidence when Squidie exposes step SLA state,
   including due-soon, overdue, and escalated run filters
 - Step attempt counts on run detail pages
 - Light, dark, and system theme controls
 - Embedded CSS and JavaScript served by the library
 
-SquidSonar only displays deadline and escalation state returned by Squid Mesh.
+SquidSonar only displays deadline and escalation state returned by Squidie.
 Alert delivery, notification routing, paging rules, and escalation side effects
 remain host-application responsibilities.
 
@@ -99,7 +99,7 @@ remain host-application responsibilities.
 - Elixir 1.17 or later
 - Phoenix 1.8
 - Phoenix LiveView 1.1
-- A host application with Squid Mesh installed and configured
+- A host application with Squidie installed and configured
 
 ## Installation
 
@@ -151,7 +151,7 @@ squid_sonar "/sonar",
 
 `transport` can be `"websocket"` or `"longpoll"`.
 
-`control_actor` is persisted with Squid Mesh manual actions such as resume,
+`control_actor` is persisted with Squidie manual actions such as resume,
 approve, and reject. It can be a non-empty string, a non-empty map, or an MFA
 tuple. MFA callbacks receive the current `Plug.Conn` as their first argument.
 Prefer a small audit map over a raw user struct:
@@ -180,8 +180,8 @@ SquidSonar does not ship its own authentication layer. Protect the mounted route
 with the same browser pipeline, session handling, and authorization rules used
 for the rest of the host application's operator surface.
 
-The dashboard can issue Squid Mesh control actions when a run exposes safe
-manual actions. It also displays runtime data returned by Squid Mesh, including
+The dashboard can issue Squidie control actions when a run exposes safe
+manual actions. It also displays runtime data returned by Squidie, including
 workflow names, run IDs, step names, statuses, diagnostic signals, and selected
 error metadata. Treat the mounted dashboard as an operational control surface
 and expose it only to trusted users.
@@ -193,7 +193,7 @@ manual controls can reflect follow-up workflow work without a browser refresh.
 ## Example App
 
 The repository includes a Phoenix example app at `examples/example_app`. It
-mounts SquidSonar at `/sonar` and seeds real Squid Mesh workflows that produce
+mounts SquidSonar at `/sonar` and seeds real Squidie workflows that produce
 completed, failed, retrying, paused, approval-paused, and saga recovery runs.
 The saga recovery run includes a compensatable inventory reservation step so
 the dashboard can show declared rollback metadata and recovery policy
@@ -216,7 +216,7 @@ Open `http://localhost:4000/sonar` after the server starts.
 ## Library Modules
 
 - `SquidSonar.Router` mounts the embedded dashboard routes.
-- `SquidSonar.Runs` is the read boundary over Squid Mesh run APIs.
+- `SquidSonar.Runs` is the read boundary over Squidie run APIs.
 - `SquidSonar.Dashboard` builds the filtered, paginated dashboard snapshot.
 - `SquidSonar.Runs.WorkflowGraph` turns workflow definitions and persisted run
   state into a display graph.
@@ -225,14 +225,14 @@ Open `http://localhost:4000/sonar` after the server starts.
 
 ## Community
 
-Use the [Squid Mesh Elixir Forum thread](https://elixirforum.com/t/squid-mesh-workflow-automation-runtime-for-elixir-applications/75162)
+Use the [Squidie Elixir Forum thread](https://elixirforum.com/t/squidie-workflow-automation-runtime-for-elixir-applications/75162)
 for public discussion and design context around the runtime and dashboard.
 
 Use [GitHub issues](https://github.com/dark-trench/squid_sonar/issues) for
 dashboard bugs, feature requests, and release-tracked work.
 
 For informal runtime and Jido-adjacent chat, use the
-[Squid Mesh channel on the Jido Discord](https://discord.com/channels/1323353012235796550/1504122798027571331).
+[Squidie channel on the Jido Discord](https://discord.com/channels/1323353012235796550/1504122798027571331).
 
 ## License
 

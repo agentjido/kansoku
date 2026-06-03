@@ -8,7 +8,7 @@ defmodule SquidSonarExample.Application do
     children =
       [
         SquidSonarExample.Repo,
-        {Task.Supervisor, name: SquidSonarExample.SquidMeshTaskSupervisor},
+        {Task.Supervisor, name: SquidSonarExample.SquidieTaskSupervisor},
         journal_run_child(),
         {Phoenix.PubSub, name: SquidSonarExample.PubSub},
         SquidSonarExampleWeb.Endpoint

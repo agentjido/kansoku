@@ -1,9 +1,9 @@
 defmodule SquidSonar.ReadModelFixtures do
-  alias SquidMesh.ReadModel.Explanation.Diagnostic
-  alias SquidMesh.ReadModel.Inspection.Snapshot
-  alias SquidMesh.Runs.GraphInspection
-  alias SquidMesh.Runs.GraphInspection.Edge
-  alias SquidMesh.Runs.GraphInspection.Node
+  alias Squidie.ReadModel.Explanation.Diagnostic
+  alias Squidie.ReadModel.Inspection.Snapshot
+  alias Squidie.Runs.GraphInspection
+  alias Squidie.Runs.GraphInspection.Edge
+  alias Squidie.Runs.GraphInspection.Node
 
   def snapshot(status, attrs) do
     workflow = Keyword.fetch!(attrs, :workflow)

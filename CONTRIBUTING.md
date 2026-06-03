@@ -1,6 +1,6 @@
 # Contributing
 
-SquidSonar is an embeddable Phoenix UI for inspecting Squid Mesh workflow runs.
+SquidSonar is an embeddable Phoenix UI for inspecting Squidie workflow runs.
 Keep changes small, focused, and easy to review.
 
 ## Development
@@ -18,7 +18,7 @@ mix precommit
 
 Every user-facing feature should include matching example-app coverage when the
 behavior can be demonstrated in a running Phoenix app. The example app should
-make new dashboard behavior visible with real Squid Mesh workflow data.
+make new dashboard behavior visible with real Squidie workflow data.
 
 ## Pull Requests
 
