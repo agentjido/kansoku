@@ -1,8 +1,8 @@
-defmodule SquidMesh.Repo.Migrations.CreateSquidMeshSchema do
+defmodule Squidie.Repo.Migrations.CreateSquidieSchema do
   use Ecto.Migration
 
   def change do
-    create table(:squid_mesh_journal_threads, primary_key: false) do
+    create table(:squidie_journal_threads, primary_key: false) do
       add :id, :text, primary_key: true
       add :rev, :bigint, null: false, default: 0
       add :metadata, :map, null: false, default: %{}
@@ -12,11 +12,11 @@ defmodule SquidMesh.Repo.Migrations.CreateSquidMeshSchema do
       timestamps(type: :utc_datetime_usec)
     end
 
-    create table(:squid_mesh_journal_entries, primary_key: false) do
+    create table(:squidie_journal_entries, primary_key: false) do
       add :id, :binary_id, primary_key: true
 
       add :thread_id,
-          references(:squid_mesh_journal_threads,
+          references(:squidie_journal_threads,
             column: :id,
             type: :text,
             on_delete: :delete_all
@@ -29,9 +29,9 @@ defmodule SquidMesh.Repo.Migrations.CreateSquidMeshSchema do
       timestamps(type: :utc_datetime_usec)
     end
 
-    create unique_index(:squid_mesh_journal_entries, [:thread_id, :seq])
+    create unique_index(:squidie_journal_entries, [:thread_id, :seq])
 
-    create table(:squid_mesh_journal_checkpoints, primary_key: false) do
+    create table(:squidie_journal_checkpoints, primary_key: false) do
       add :key_hash, :string, primary_key: true
       add :key, :binary, null: false
       add :checkpoint, :binary, null: false

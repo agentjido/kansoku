@@ -1,14 +1,14 @@
 defmodule SquidSonar.DashboardTest do
   use ExUnit.Case, async: true
 
-  alias SquidMesh.ReadModel.Listing.Summary
+  alias Squidie.ReadModel.Listing.Summary
   alias SquidSonar.Dashboard
-  alias SquidSonar.FakeSquidMeshClient
+  alias SquidSonar.FakeSquidieClient
 
   @loaded_at ~U[2026-05-15 10:30:00Z]
 
   test "loads recent runs with status counts" do
-    FakeSquidMeshClient.put_list_runs(
+    FakeSquidieClient.put_list_runs(
       {:ok,
        [
          summary(:completed),
@@ -20,7 +20,7 @@ defmodule SquidSonar.DashboardTest do
        ]}
     )
 
-    dashboard = Dashboard.load(client: FakeSquidMeshClient, loaded_at: @loaded_at)
+    dashboard = Dashboard.load(client: FakeSquidieClient, loaded_at: @loaded_at)
 
     assert length(dashboard.runs) == 6
     assert dashboard.loaded_at == @loaded_at
@@ -35,7 +35,7 @@ defmodule SquidSonar.DashboardTest do
   end
 
   test "filters runs by status while preserving date order" do
-    FakeSquidMeshClient.put_list_runs(
+    FakeSquidieClient.put_list_runs(
       {:ok,
        [
          summary(:completed, indexed_at: ~U[2026-05-15 10:00:00Z]),
@@ -47,7 +47,7 @@ defmodule SquidSonar.DashboardTest do
 
     dashboard =
       Dashboard.load(
-        client: FakeSquidMeshClient,
+        client: FakeSquidieClient,
         loaded_at: @loaded_at,
         filters: %{"status" => "failed"}
       )
@@ -68,11 +68,11 @@ defmodule SquidSonar.DashboardTest do
         )
       end
 
-    FakeSquidMeshClient.put_list_runs({:ok, runs})
+    FakeSquidieClient.put_list_runs({:ok, runs})
 
     dashboard =
       Dashboard.load(
-        client: FakeSquidMeshClient,
+        client: FakeSquidieClient,
         loaded_at: @loaded_at,
         filters: %{"status" => "failed"},
         page: "2",
@@ -87,7 +87,7 @@ defmodule SquidSonar.DashboardTest do
   end
 
   test "filters runs by dashboard search text" do
-    FakeSquidMeshClient.put_list_runs(
+    FakeSquidieClient.put_list_runs(
       {:ok,
        [
          summary(:completed),
@@ -98,7 +98,7 @@ defmodule SquidSonar.DashboardTest do
 
     dashboard =
       Dashboard.load(
-        client: FakeSquidMeshClient,
+        client: FakeSquidieClient,
         loaded_at: @loaded_at,
         filters: %{"query" => "capture"}
       )
@@ -107,7 +107,7 @@ defmodule SquidSonar.DashboardTest do
   end
 
   test "filters runs by deadline state" do
-    FakeSquidMeshClient.put_list_runs(
+    FakeSquidieClient.put_list_runs(
       {:ok,
        [
          summary(:running,
@@ -124,7 +124,7 @@ defmodule SquidSonar.DashboardTest do
 
     dashboard =
       Dashboard.load(
-        client: FakeSquidMeshClient,
+        client: FakeSquidieClient,
         loaded_at: @loaded_at,
         filters: %{"deadline" => "escalated"}
       )
@@ -135,9 +135,9 @@ defmodule SquidSonar.DashboardTest do
   end
 
   test "keeps error state at the dashboard boundary" do
-    FakeSquidMeshClient.put_list_runs({:error, {:missing_config, [:repo]}})
+    FakeSquidieClient.put_list_runs({:error, {:missing_config, [:repo]}})
 
-    dashboard = Dashboard.load(client: FakeSquidMeshClient, loaded_at: @loaded_at)
+    dashboard = Dashboard.load(client: FakeSquidieClient, loaded_at: @loaded_at)
 
     assert dashboard.runs == []
     assert dashboard.status_counts.failed == 0

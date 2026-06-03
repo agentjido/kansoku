@@ -172,7 +172,7 @@ defmodule SquidSonarWeb.CoreComponents do
     ~H"""
     <section class="squid-sonar-alert" role="alert">
       <h2>Unable to load runs</h2>
-      <p>Check the host application's Squid Mesh configuration and logs.</p>
+      <p>Check the host application's Squidie configuration and logs.</p>
     </section>
     """
   end

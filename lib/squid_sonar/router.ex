@@ -41,7 +41,7 @@ defmodule SquidSonar.Router do
       Defaults to `"/live"`.
     * `:transport` - LiveView client transport. Use `"websocket"` or
       `"longpoll"`. Defaults to `"websocket"`.
-    * `:control_actor` - actor persisted with Squid Mesh manual approval and
+    * `:control_actor` - actor persisted with Squidie manual approval and
       resume actions. Pass a non-empty binary, a non-empty map, or an MFA tuple
       `{module, function, args}`. MFA callbacks receive the current `conn` as
       their first argument.

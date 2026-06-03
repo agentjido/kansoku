@@ -1,8 +1,8 @@
 defmodule SquidSonarExample.JournalRun do
   @moduledoc """
-  Small host-owned worker loop that drains Squid Mesh journal attempts.
+  Small host-owned worker loop that drains Squidie journal attempts.
 
-  The example app uses Squid Mesh's pull-based journal runtime. This worker gives
+  The example app uses Squidie's pull-based journal runtime. This worker gives
   the preview server an execution surface so controls such as approval and resume
   visibly advance scheduled workflow work.
   """
@@ -41,7 +41,7 @@ defmodule SquidSonarExample.JournalRun do
   end
 
   defp drain_once(state) do
-    case SquidMesh.execute_next(owner_id: state.owner_id) do
+    case Squidie.execute_next(owner_id: state.owner_id) do
       {:ok, :none} ->
         schedule_drain(state.idle_interval_ms)
 

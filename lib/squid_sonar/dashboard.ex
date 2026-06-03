@@ -51,7 +51,7 @@ defmodule SquidSonar.Dashboard do
     page_size = normalize_page_size(Keyword.get(opts, :page_size))
     requested_page = normalize_page(Keyword.get(opts, :page))
     loaded_at = Keyword.get_lazy(opts, :loaded_at, &DateTime.utc_now/0)
-    runs_opts = Keyword.take(opts, [:client, :squid_mesh])
+    runs_opts = Keyword.take(opts, [:client, :squidie])
 
     case Runs.list_runs([limit: limit], runs_opts) do
       {:ok, runs} ->

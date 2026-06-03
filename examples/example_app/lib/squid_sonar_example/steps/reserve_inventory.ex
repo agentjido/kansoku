@@ -1,7 +1,7 @@
 defmodule SquidSonarExample.Steps.ReserveInventory do
   @moduledoc false
 
-  use SquidMesh.Step,
+  use Squidie.Step,
     name: :reserve_inventory,
     description: "Reserves inventory for a checkout order",
     input_schema: [

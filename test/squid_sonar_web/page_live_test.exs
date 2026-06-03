@@ -4,25 +4,25 @@ defmodule SquidSonarWeb.PageLiveTest do
   import Phoenix.LiveViewTest
 
   alias Phoenix.LiveView.Socket
-  alias SquidMesh.ReadModel.Listing.Summary
-  alias SquidSonar.FakeSquidMeshClient
+  alias Squidie.ReadModel.Listing.Summary
+  alias SquidSonar.FakeSquidieClient
   alias SquidSonarWeb.PageLive
 
   setup do
-    previous_client = Application.get_env(:squid_sonar, :squid_mesh_client)
-    Application.put_env(:squid_sonar, :squid_mesh_client, FakeSquidMeshClient)
+    previous_client = Application.get_env(:squid_sonar, :squidie_client)
+    Application.put_env(:squid_sonar, :squidie_client, FakeSquidieClient)
 
     on_exit(fn ->
       if previous_client do
-        Application.put_env(:squid_sonar, :squid_mesh_client, previous_client)
+        Application.put_env(:squid_sonar, :squidie_client, previous_client)
       else
-        Application.delete_env(:squid_sonar, :squid_mesh_client)
+        Application.delete_env(:squid_sonar, :squidie_client)
       end
     end)
   end
 
   test "renders run status counts and recent workflow runs" do
-    FakeSquidMeshClient.put_list_runs(
+    FakeSquidieClient.put_list_runs(
       {:ok,
        [
          summary(:completed, "completed_checkout", "default"),
@@ -58,7 +58,7 @@ defmodule SquidSonarWeb.PageLiveTest do
   end
 
   test "renders an empty state when no runs are available" do
-    FakeSquidMeshClient.put_list_runs({:ok, []})
+    FakeSquidieClient.put_list_runs({:ok, []})
 
     html = render_page()
 
@@ -66,7 +66,7 @@ defmodule SquidSonarWeb.PageLiveTest do
   end
 
   test "renders a boundary error when runs cannot be loaded" do
-    FakeSquidMeshClient.put_list_runs({:error, {:missing_config, [:repo]}})
+    FakeSquidieClient.put_list_runs({:error, {:missing_config, [:repo]}})
 
     html = render_page()
 
@@ -75,7 +75,7 @@ defmodule SquidSonarWeb.PageLiveTest do
   end
 
   test "filters run sections through the LiveView boundary" do
-    FakeSquidMeshClient.put_list_runs(
+    FakeSquidieClient.put_list_runs(
       {:ok,
        [
          summary(:completed, "completed_checkout", "default"),
@@ -98,7 +98,7 @@ defmodule SquidSonarWeb.PageLiveTest do
   end
 
   test "renders and filters deadline states" do
-    FakeSquidMeshClient.put_list_runs(
+    FakeSquidieClient.put_list_runs(
       {:ok,
        [
          summary(:running, "due_soon_checkout", "default",
@@ -142,7 +142,7 @@ defmodule SquidSonarWeb.PageLiveTest do
         )
       end
 
-    FakeSquidMeshClient.put_list_runs({:ok, runs})
+    FakeSquidieClient.put_list_runs({:ok, runs})
 
     {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
     {:noreply, socket} = PageLive.handle_event("paginate", %{"page" => "2"}, socket)
@@ -158,9 +158,7 @@ defmodule SquidSonarWeb.PageLiveTest do
   end
 
   test "sets dashboard theme without reloading run data" do
-    FakeSquidMeshClient.put_list_runs(
-      {:ok, [summary(:failed, "failing_checkout", "error-queue")]}
-    )
+    FakeSquidieClient.put_list_runs({:ok, [summary(:failed, "failing_checkout", "error-queue")]})
 
     {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
     {:noreply, socket} = PageLive.handle_event("set_theme", %{"theme" => "dark"}, socket)
@@ -175,7 +173,7 @@ defmodule SquidSonarWeb.PageLiveTest do
   end
 
   test "refreshes the dashboard while preserving active filters" do
-    FakeSquidMeshClient.put_list_runs(fn filters, _opts ->
+    FakeSquidieClient.put_list_runs(fn filters, _opts ->
       send(self(), {:list_filters, filters})
 
       {:ok,
@@ -190,7 +188,7 @@ defmodule SquidSonarWeb.PageLiveTest do
     {:noreply, socket} =
       PageLive.handle_event("filter", %{"filters" => %{"status" => "failed"}}, socket)
 
-    FakeSquidMeshClient.put_list_runs(fn filters, _opts ->
+    FakeSquidieClient.put_list_runs(fn filters, _opts ->
       send(self(), {:list_filters, filters})
       {:ok, [summary(:failed, "new_failure_checkout", "error-queue")]}
     end)

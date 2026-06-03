@@ -1,11 +1,11 @@
 defmodule Mix.Tasks.Example.Seed do
   @moduledoc """
-  Seeds monitorable Squid Mesh runs for the example app.
+  Seeds monitorable Squidie runs for the example app.
   """
 
   use Mix.Task
 
-  @shortdoc "Seeds example Squid Mesh workflow runs"
+  @shortdoc "Seeds example Squidie workflow runs"
 
   @impl Mix.Task
   def run(_args) do
@@ -20,13 +20,13 @@ defmodule Mix.Tasks.Example.Seed do
 
     runs =
       Enum.map(run_ids, fn run_id ->
-        {:ok, run} = SquidMesh.inspect_run(run_id)
+        {:ok, run} = Squidie.inspect_run(run_id)
         run
       end)
 
     Mix.shell().info("""
 
-    Seeded Squid Mesh example runs.
+    Seeded Squidie example runs.
 
     Current run statuses:
     #{format_runs(runs)}
@@ -55,7 +55,7 @@ defmodule Mix.Tasks.Example.Seed do
   end
 
   defp start_scenario({workflow, trigger, payload}) do
-    case SquidMesh.start(workflow, payload, trigger: trigger) do
+    case Squidie.start(workflow, payload, trigger: trigger) do
       {:ok, run} ->
         Mix.shell().info("* started #{inspect(workflow)} #{run.run_id}")
         [run.run_id]
@@ -69,9 +69,9 @@ defmodule Mix.Tasks.Example.Seed do
   defp reset_example_state! do
     {:ok, _result} =
       SquidSonarExample.Repo.query("""
-      TRUNCATE squid_mesh_journal_entries,
-               squid_mesh_journal_checkpoints,
-               squid_mesh_journal_threads
+      TRUNCATE squidie_journal_entries,
+               squidie_journal_checkpoints,
+               squidie_journal_threads
       RESTART IDENTITY CASCADE
       """)
   end
@@ -92,7 +92,7 @@ defmodule Mix.Tasks.Example.Seed do
     if Enum.all?(runs, &settled_status?/1) do
       :ok
     else
-      case SquidMesh.execute_next(owner_id: "squid-sonar-example-seed") do
+      case Squidie.execute_next(owner_id: "squid-sonar-example-seed") do
         {:ok, :none} ->
           Process.sleep(50)
           drain_runtime(run_ids, attempts_remaining - 1)
@@ -108,7 +108,7 @@ defmodule Mix.Tasks.Example.Seed do
 
   defp inspect_runs(run_ids) do
     Enum.map(run_ids, fn run_id ->
-      {:ok, run} = SquidMesh.inspect_run(run_id)
+      {:ok, run} = Squidie.inspect_run(run_id)
       run
     end)
   end

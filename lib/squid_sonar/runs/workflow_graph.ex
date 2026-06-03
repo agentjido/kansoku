@@ -3,9 +3,9 @@ defmodule SquidSonar.Runs.WorkflowGraph do
   Workflow graph projection for run detail views.
   """
 
-  alias SquidMesh.ReadModel.Inspection.Snapshot
-  alias SquidMesh.Runs.GraphInspection
-  alias SquidMesh.Workflow.Definition
+  alias Squidie.ReadModel.Inspection.Snapshot
+  alias Squidie.Runs.GraphInspection
+  alias Squidie.Workflow.Definition
 
   defmodule Node do
     @moduledoc false

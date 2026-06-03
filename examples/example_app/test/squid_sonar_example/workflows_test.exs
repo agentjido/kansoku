@@ -1,12 +1,12 @@
 defmodule SquidSonarExample.WorkflowsTest do
   use ExUnit.Case, async: true
 
-  alias SquidMesh.Workflow.Definition
+  alias Squidie.Workflow.Definition
   alias SquidSonarExample.Steps.CapturePayment
   alias SquidSonarExample.Steps.LoadOrder
   alias SquidSonarExample.Workflows.CompletedCheckout
 
-  test "example workflows load through Squid Mesh definitions" do
+  test "example workflows load through Squidie definitions" do
     workflows = [
       SquidSonarExample.Workflows.CompletedCheckout,
       SquidSonarExample.Workflows.FailingCheckout,

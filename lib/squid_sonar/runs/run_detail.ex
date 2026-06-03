@@ -3,9 +3,9 @@ defmodule SquidSonar.Runs.RunDetail do
   Detailed run projection for the run detail view.
   """
 
-  alias SquidMesh.ReadModel.Explanation.Diagnostic
-  alias SquidMesh.ReadModel.Inspection.Snapshot
-  alias SquidMesh.Runs.GraphInspection
+  alias Squidie.ReadModel.Explanation.Diagnostic
+  alias Squidie.ReadModel.Inspection.Snapshot
+  alias Squidie.Runs.GraphInspection
   alias SquidSonar.Runs.WorkflowGraph
 
   defmodule Summary do

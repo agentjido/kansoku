@@ -1,7 +1,7 @@
-defmodule SquidSonar.FakeSquidMeshClient do
+defmodule SquidSonar.FakeSquidieClient do
   @moduledoc false
 
-  @behaviour SquidSonar.SquidMeshClient
+  @behaviour SquidSonar.SquidieClient
 
   @impl true
   def list_runs(filters, opts) do

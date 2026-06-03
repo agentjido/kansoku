@@ -1,7 +1,7 @@
 defmodule SquidSonarExample.Workflows.SagaCheckout do
   @moduledoc false
 
-  use SquidMesh.Workflow
+  use Squidie.Workflow
 
   workflow do
     trigger :saga_checkout do

@@ -1,10 +1,10 @@
-defmodule SquidSonarExample.SquidMeshExecutor do
+defmodule SquidSonarExample.SquidieExecutor do
   @moduledoc false
 
-  @behaviour SquidMesh.Executor
+  @behaviour Squidie.Executor
 
-  alias SquidMesh.Executor.Payload
-  alias SquidMesh.Runtime.Runner
+  alias Squidie.Executor.Payload
+  alias Squidie.Runtime.Runner
 
   @impl true
   def enqueue_cron(_config, workflow, trigger, opts) do
@@ -16,7 +16,7 @@ defmodule SquidSonarExample.SquidMeshExecutor do
   defp enqueue_payload(payload, opts) do
     schedule_in = Keyword.get(opts, :schedule_in, 0)
 
-    case Task.Supervisor.start_child(SquidSonarExample.SquidMeshTaskSupervisor, fn ->
+    case Task.Supervisor.start_child(SquidSonarExample.SquidieTaskSupervisor, fn ->
            maybe_sleep(schedule_in)
            Runner.perform(payload)
          end) do

@@ -1,7 +1,7 @@
 defmodule SquidSonarExample.Steps.ReleaseInventory do
   @moduledoc false
 
-  use SquidMesh.Step,
+  use Squidie.Step,
     name: :release_inventory,
     description: "Releases inventory reserved by the saga checkout example",
     input_schema: [

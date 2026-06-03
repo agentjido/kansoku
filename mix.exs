@@ -42,7 +42,7 @@ defmodule SquidSonar.MixProject do
   defp elixirc_paths(_), do: ["lib"]
 
   defp description do
-    "Embeddable runtime dashboard for Squid Mesh."
+    "Embeddable runtime dashboard for Squidie."
   end
 
   defp package do
@@ -68,15 +68,15 @@ defmodule SquidSonar.MixProject do
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.1"},
       {:jason, "~> 1.4"},
-      squid_mesh_dep(),
+      squidie_dep(),
       {:lazy_html, ">= 0.1.0", only: :test},
       {:excoveralls, "~> 0.18", only: :test},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
   end
 
-  defp squid_mesh_dep do
-    {:squid_mesh, github: "dark-trench/squid_mesh", branch: "main"}
+  defp squidie_dep do
+    {:squidie, "~> 0.1.2"}
   end
 
   defp aliases do
