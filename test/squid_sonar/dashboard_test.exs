@@ -22,7 +22,7 @@ defmodule SquidSonar.DashboardTest do
 
     dashboard = Dashboard.load(client: FakeSquidieClient, loaded_at: @loaded_at)
 
-    assert length(dashboard.runs) == 6
+    assert [_first, _second, _third, _fourth, _fifth, _sixth] = dashboard.runs
     assert dashboard.loaded_at == @loaded_at
     assert dashboard.load_error == nil
     assert dashboard.status_counts.completed == 1

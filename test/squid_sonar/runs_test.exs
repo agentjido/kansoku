@@ -28,7 +28,7 @@ defmodule SquidSonar.RunsTest do
         step: [type: :map, required: true]
       ]
 
-    @impl true
+    @impl SquidMesh.Step
     def run(_input, _context), do: {:ok, %{}}
   end
 
@@ -213,8 +213,8 @@ defmodule SquidSonar.RunsTest do
     assert detail.context == %{"attempted" => true}
     assert detail.last_error == %{"message" => "gateway unavailable"}
     assert detail.planned_runnables == [%{runnable_key: "capture_payment"}]
-    assert length(detail.attempts) == 1
-    assert length(detail.anomalies) == 1
+    assert [_attempt] = detail.attempts
+    assert [_anomaly] = detail.anomalies
     assert detail.explanation.summary =~ "waiting for a worker claim"
 
     assert Enum.map(detail.workflow_graph.nodes, & &1.name) == [

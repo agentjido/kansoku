@@ -1,4 +1,8 @@
 defmodule SquidSonarWeb.RunLive do
+  @moduledoc """
+  Live run detail page for inspecting and controlling a Squid Mesh run.
+  """
+
   use SquidSonarWeb, :live_view
 
   alias SquidSonar.Runs
@@ -6,7 +10,7 @@ defmodule SquidSonarWeb.RunLive do
   @run_refresh_interval_ms 1_000
   @control_refresh_interval_ms 250
 
-  @impl true
+  @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     {:ok,
      socket
@@ -17,7 +21,7 @@ defmodule SquidSonarWeb.RunLive do
      |> assign(:workflow_panel_view, :visual)}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_params(%{"id" => run_id}, _uri, socket) do
     {:noreply,
      socket
@@ -25,22 +29,22 @@ defmodule SquidSonarWeb.RunLive do
      |> schedule_run_refresh()}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("set_theme", %{"theme" => theme}, socket) do
     {:noreply, assign(socket, :theme, normalize_theme(theme))}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("clear_flash", _params, socket) do
     {:noreply, clear_run_flash(socket)}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("select_workflow_panel", %{"view" => view}, socket) do
     {:noreply, assign(socket, :workflow_panel_view, normalize_workflow_panel_view(view))}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("cancel", %{"run-id" => run_id}, socket) do
     case Runs.cancel_run(run_id) do
       {:ok, _updated_run} ->
@@ -55,7 +59,7 @@ defmodule SquidSonarWeb.RunLive do
     end
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("resume", %{"run-id" => run_id}, socket) do
     case Runs.resume_run(run_id, control_attrs(socket)) do
       {:ok, _updated_run} ->
@@ -70,7 +74,7 @@ defmodule SquidSonarWeb.RunLive do
     end
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("approve", %{"run-id" => run_id}, socket) do
     case Runs.approve_run(run_id, control_attrs(socket)) do
       {:ok, _updated_run} ->
@@ -85,7 +89,7 @@ defmodule SquidSonarWeb.RunLive do
     end
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("reject", %{"run-id" => run_id}, socket) do
     case Runs.reject_run(run_id, control_attrs(socket)) do
       {:ok, _updated_run} ->
@@ -100,7 +104,7 @@ defmodule SquidSonarWeb.RunLive do
     end
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("replay", %{"run-id" => run_id}, socket) do
     case Runs.replay_run(run_id) do
       {:ok, new_run} ->
@@ -116,7 +120,7 @@ defmodule SquidSonarWeb.RunLive do
     end
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
     <main
@@ -151,7 +155,7 @@ defmodule SquidSonarWeb.RunLive do
     """
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_info(:refresh_run, socket) do
     {:noreply,
      socket

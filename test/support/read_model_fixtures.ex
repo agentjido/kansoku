@@ -1,10 +1,16 @@
 defmodule SquidSonar.ReadModelFixtures do
+  @moduledoc false
+
   alias Squidie.ReadModel.Explanation.Diagnostic
   alias Squidie.ReadModel.Inspection.Snapshot
   alias Squidie.Runs.GraphInspection
   alias Squidie.Runs.GraphInspection.Edge
   alias Squidie.Runs.GraphInspection.Node
 
+  @doc """
+  Builds a Squid Mesh inspection snapshot for tests.
+  """
+  @spec snapshot(atom(), keyword()) :: Snapshot.t()
   def snapshot(status, attrs) do
     workflow = Keyword.fetch!(attrs, :workflow)
 
@@ -37,6 +43,10 @@ defmodule SquidSonar.ReadModelFixtures do
     }
   end
 
+  @doc """
+  Builds a Squid Mesh diagnostic for tests.
+  """
+  @spec diagnostic(atom(), keyword()) :: Diagnostic.t()
   def diagnostic(status, attrs) do
     workflow = Keyword.fetch!(attrs, :workflow)
 
@@ -55,6 +65,10 @@ defmodule SquidSonar.ReadModelFixtures do
     }
   end
 
+  @doc """
+  Builds graph inspection data for tests.
+  """
+  @spec graph_inspection(atom(), keyword()) :: GraphInspection.t()
   def graph_inspection(status, attrs) do
     workflow = Keyword.fetch!(attrs, :workflow)
 
@@ -72,6 +86,10 @@ defmodule SquidSonar.ReadModelFixtures do
     }
   end
 
+  @doc """
+  Builds a graph inspection node for tests.
+  """
+  @spec graph_node(term(), atom(), boolean(), keyword()) :: Node.t()
   def graph_node(id, status, current?, attrs \\ []) do
     %Node{
       id: id,
@@ -88,6 +106,10 @@ defmodule SquidSonar.ReadModelFixtures do
     }
   end
 
+  @doc """
+  Builds a graph inspection edge for tests.
+  """
+  @spec graph_edge(term(), term(), atom(), keyword()) :: Edge.t()
   def graph_edge(from, to, outcome, attrs \\ []) do
     %Edge{
       id: "#{from}:#{outcome}:#{to}",
@@ -101,9 +123,17 @@ defmodule SquidSonar.ReadModelFixtures do
     }
   end
 
+  @doc """
+  Converts test edge outcomes into graph inspection edge types.
+  """
+  @spec edge_type(atom()) :: atom()
   def edge_type(:ready), do: :dependency
   def edge_type(_outcome), do: :transition
 
+  @doc """
+  Builds compensation recovery metadata for tests.
+  """
+  @spec compensation_recovery(term(), keyword()) :: map()
   def compensation_recovery(callback, attrs \\ []) do
     recovery = %{
       compensation: %{
@@ -115,10 +145,18 @@ defmodule SquidSonar.ReadModelFixtures do
     maybe_put(recovery, :failure, Keyword.get(attrs, :failure))
   end
 
+  @doc """
+  Builds recovery policy evidence for one step.
+  """
+  @spec recovery_policy_evidence(term(), term()) :: map()
   def recovery_policy_evidence(step, recovery) do
     recovery_policy_evidence(%{to_string(step) => recovery})
   end
 
+  @doc """
+  Builds recovery policy evidence for multiple steps.
+  """
+  @spec recovery_policy_evidence(map()) :: map()
   def recovery_policy_evidence(recovery_policies) when is_map(recovery_policies) do
     %{
       recovery_policies:
@@ -128,6 +166,10 @@ defmodule SquidSonar.ReadModelFixtures do
     }
   end
 
+  @doc """
+  Builds attempt evidence for inspection snapshots.
+  """
+  @spec attempt(term(), atom(), pos_integer(), term(), keyword()) :: map()
   def attempt(step, status, attempt_number, error, attrs \\ []) do
     %{
       step: step,

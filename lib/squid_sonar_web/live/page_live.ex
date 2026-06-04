@@ -1,11 +1,15 @@
 defmodule SquidSonarWeb.PageLive do
+  @moduledoc """
+  Live dashboard for browsing recent Squid Mesh runs.
+  """
+
   use SquidSonarWeb, :live_view
 
   alias SquidSonar.Dashboard
 
   @dashboard_refresh_interval_ms 2_000
 
-  @impl true
+  @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     socket =
       socket
@@ -18,7 +22,7 @@ defmodule SquidSonarWeb.PageLive do
     {:ok, socket}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("refresh", _params, socket) do
     dashboard = socket.assigns.dashboard
 
@@ -30,7 +34,7 @@ defmodule SquidSonarWeb.PageLive do
      )}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("filter", params, socket) do
     {:noreply,
      assign_dashboard(socket,
@@ -40,7 +44,7 @@ defmodule SquidSonarWeb.PageLive do
      )}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("paginate", %{"page" => page} = params, socket) do
     dashboard = socket.assigns.dashboard
 
@@ -53,25 +57,26 @@ defmodule SquidSonarWeb.PageLive do
      )}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_event("set_theme", %{"theme" => theme}, socket) do
     {:noreply, assign(socket, :theme, normalize_theme(theme))}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def handle_info(:refresh_dashboard, socket) do
     dashboard = socket.assigns.dashboard
 
-    {:noreply,
-     assign_dashboard(socket,
-       filters: dashboard.filters,
-       page: dashboard.page,
-       page_size: dashboard.page_size
-     )
-     |> schedule_dashboard_refresh()}
+    socket =
+      assign_dashboard(socket,
+        filters: dashboard.filters,
+        page: dashboard.page,
+        page_size: dashboard.page_size
+      )
+
+    {:noreply, schedule_dashboard_refresh(socket)}
   end
 
-  @impl true
+  @impl Phoenix.LiveView
   def render(assigns) do
     ~H"""
     <main

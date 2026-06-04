@@ -12,6 +12,10 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   @padding_y 20
   @line_size 2
 
+  @doc """
+  Calculates node, edge, and port positions for a run workflow graph.
+  """
+  @spec build(map()) :: map()
   def build(%{nodes: []}) do
     %{
       width: 0,
@@ -58,16 +62,18 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
     initial_columns = Map.new(nodes, fn %{name: name} -> {node_key(name), 1} end)
 
     Enum.reduce(1..map_size(node_order), initial_columns, fn _iteration, columns ->
-      Enum.reduce(graph_edges, columns, fn {from, to}, columns ->
-        next_column = Map.fetch!(columns, from) + 1
-
-        if next_column > Map.fetch!(columns, to) do
-          Map.put(columns, to, next_column)
-        else
-          columns
-        end
-      end)
+      Enum.reduce(graph_edges, columns, &advance_column/2)
     end)
+  end
+
+  defp advance_column({from, to}, columns) do
+    next_column = Map.fetch!(columns, from) + 1
+
+    if next_column > Map.fetch!(columns, to) do
+      Map.put(columns, to, next_column)
+    else
+      columns
+    end
   end
 
   defp positions(nodes, graph_edges, columns, node_order, track_height) do
@@ -142,9 +148,9 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   defp deadline_node?(_node), do: false
 
   defp recovery_node?(%{recovery: recovery}) when is_map(recovery) do
-    case Map.get(recovery, :compensation) || Map.get(recovery, "compensation") do
+    case map_value(recovery, :compensation) do
       compensation when is_map(compensation) ->
-        not is_nil(Map.get(compensation, :callback) || Map.get(compensation, "callback"))
+        has_callback?(compensation)
 
       _other ->
         false
@@ -152,6 +158,13 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   end
 
   defp recovery_node?(_node), do: false
+
+  defp has_callback?(compensation) do
+    case map_value(compensation, :callback) do
+      nil -> false
+      _callback -> true
+    end
+  end
 
   defp positioned_nodes(nodes, positions) do
     Enum.map(nodes, fn %{name: name} = node ->
@@ -234,4 +247,8 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   end
 
   defp node_key(value), do: to_string(value)
+
+  defp map_value(map, key) when is_map(map) and is_atom(key) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
 end

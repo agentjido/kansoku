@@ -1,6 +1,10 @@
 defmodule SquidSonarWeb do
   @moduledoc false
 
+  @doc """
+  Imports the shared LiveView setup for SquidSonar screens.
+  """
+  @spec live_view() :: Macro.t()
   def live_view do
     quote do
       use Phoenix.LiveView
@@ -9,6 +13,10 @@ defmodule SquidSonarWeb do
     end
   end
 
+  @doc """
+  Imports the shared HTML component setup for SquidSonar views.
+  """
+  @spec html() :: Macro.t()
   def html do
     quote do
       use Phoenix.Component

@@ -182,8 +182,7 @@ defmodule SquidSonar.Dashboard do
       run.terminal_status,
       map_value(run.deadline, :status)
     ]
-    |> Enum.map(&format_search_value/1)
-    |> Enum.join(" ")
+    |> Enum.map_join(" ", &format_search_value/1)
     |> String.downcase()
   end
 

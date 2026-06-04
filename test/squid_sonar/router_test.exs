@@ -122,6 +122,7 @@ defmodule SquidSonar.RouterTest do
              )
   end
 
+  @spec control_actor_from_conn(Plug.Conn.t()) :: map()
   def control_actor_from_conn(%Plug.Conn{}) do
     %{"id" => "conn-user", "type" => "operator"}
   end
