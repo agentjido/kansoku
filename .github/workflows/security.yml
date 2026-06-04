@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
   actions: read
 
 env:
@@ -24,7 +23,9 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
 
       - name: Setup Elixir
         uses: ./.github/actions/setup-elixir
@@ -38,10 +39,15 @@ jobs:
   trivy:
     name: Filesystem Vulnerability Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
 
       - name: Run Trivy vulnerability scanner
         run: |
@@ -54,7 +60,7 @@ jobs:
             --severity CRITICAL,HIGH,MEDIUM
 
       - name: Upload Trivy scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@411bbbe57033eedfc1a82d68c01345aa96c737d7
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: "trivy-results.sarif"
@@ -65,13 +71,14 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: TruffleHog OSS (PR)
         if: github.event_name == 'pull_request'
-        uses: trufflesecurity/trufflehog@v3.95.3
+        uses: trufflesecurity/trufflehog@37b77001d0174ebec2fcca2bd83ff83a6d45a3ab
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -80,7 +87,7 @@ jobs:
 
       - name: TruffleHog OSS (Push/Schedule)
         if: github.event_name != 'pull_request'
-        uses: trufflesecurity/trufflehog@v3.95.3
+        uses: trufflesecurity/trufflehog@37b77001d0174ebec2fcca2bd83ff83a6d45a3ab
         with:
           path: ./
           extra_args: --debug
