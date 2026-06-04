@@ -452,6 +452,41 @@ defmodule SquidSonarWeb.CoreComponents do
         </div>
       </section>
 
+      <section
+        :if={@detail.dynamic_work_overlays != []}
+        class="squid-sonar-detail-panel squid-sonar-dynamic-work-panel"
+      >
+        <h3>Dynamic work overlays</h3>
+        <p>
+          Runtime-authored structure is inspection-only here; SquidSonar is not treating
+          dynamic nodes as executable planner controls.
+        </p>
+        <div class="squid-sonar-recovery-policy-list">
+          <article
+            :for={overlay <- @detail.dynamic_work_overlays}
+            class="squid-sonar-recovery-policy-row"
+          >
+            <strong>{format_dynamic_overlay_key(overlay)}</strong>
+            <div class="squid-sonar-recovery-policy-tags">
+              <span>origin {format_step(overlay.origin_node_id)}</span>
+              <span :if={overlay.status}>status {format_policy_value(overlay.status)}</span>
+              <span :if={overlay.reason}>reason {format_policy_value(overlay.reason)}</span>
+              <span>{pluralize(overlay.node_count, "node")}</span>
+              <span>{pluralize(overlay.edge_count, "edge")}</span>
+              <span :if={overlay.recorded_at}>recorded {format_time(overlay.recorded_at)}</span>
+            </div>
+            <div class="squid-sonar-recovery-policy-tags">
+              <span :if={overlay.added_node_ids != []}>
+                nodes {Enum.join(overlay.added_node_ids, ", ")}
+              </span>
+              <span :if={overlay.added_edge_ids != []}>
+                edges {Enum.join(overlay.added_edge_ids, ", ")}
+              </span>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="squid-sonar-detail-panel">
         <div class="squid-sonar-workflow-panel-heading">
           <h3>Workflow</h3>
@@ -573,6 +608,7 @@ defmodule SquidSonarWeb.CoreComponents do
                   class={[
                     "squid-sonar-workflow-node",
                     "squid-sonar-workflow-node-#{item.node.status}",
+                    item.node.dynamic? && "squid-sonar-workflow-node-dynamic",
                     item.node.current? && "squid-sonar-workflow-node-current",
                     item.node.terminal? && "squid-sonar-workflow-node-terminal"
                   ]}
@@ -584,6 +620,7 @@ defmodule SquidSonarWeb.CoreComponents do
                       "squid-sonar-workflow-status-icon-#{item.node.status}"
                     ]} />
                     <strong>{item.node.label}</strong>
+                    <span :if={item.node.dynamic?} class="squid-sonar-section-label">Dynamic</span>
                   </div>
                   <span class="squid-sonar-workflow-node-status">
                     {format_graph_status(item.node.status)}
@@ -683,6 +720,13 @@ defmodule SquidSonarWeb.CoreComponents do
     |> format_value()
     |> String.replace("_", " ")
   end
+
+  defp format_dynamic_overlay_key(%{dynamic_key: key}) when is_binary(key), do: key
+  defp format_dynamic_overlay_key(%{origin_node_id: origin}) when is_binary(origin), do: origin
+  defp format_dynamic_overlay_key(_overlay), do: "dynamic work"
+
+  defp pluralize(1, label), do: "1 #{label}"
+  defp pluralize(count, label), do: "#{count} #{label}s"
 
   defp format_time(nil), do: "Unknown"
 

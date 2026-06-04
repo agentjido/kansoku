@@ -12,11 +12,14 @@ defmodule Mix.Tasks.Example.Seed do
     Mix.Task.run("app.start")
     reset_example_state!()
 
-    run_ids =
+    started_runs =
       scenarios()
       |> Enum.flat_map(&start_scenario/1)
 
+    run_ids = Enum.map(started_runs, & &1.run_id)
+
     drain_runtime(run_ids, 12)
+    record_dynamic_work_overlay!(started_runs)
 
     runs =
       Enum.map(run_ids, fn run_id ->
@@ -58,12 +61,57 @@ defmodule Mix.Tasks.Example.Seed do
     case Squidie.start(workflow, payload, trigger: trigger) do
       {:ok, run} ->
         Mix.shell().info("* started #{inspect(workflow)} #{run.run_id}")
-        [run.run_id]
+        [%{run_id: run.run_id, workflow: workflow, trigger: trigger}]
 
       {:error, reason} ->
         Mix.shell().error("* failed #{inspect(workflow)}: #{inspect(reason)}")
         []
     end
+  end
+
+  defp record_dynamic_work_overlay!(started_runs) do
+    case Enum.find(started_runs, &(&1.trigger == :paused_checkout)) do
+      %{run_id: run_id} ->
+        with {:ok, run} <- Squidie.inspect_run(run_id),
+             {:ok, origin} <- dynamic_origin(run, "load_order"),
+             {:ok, _updated_run} <-
+               Squidie.record_dynamic_work(run_id, dynamic_work_overlay(origin)) do
+          :ok
+        else
+          {:error, reason} ->
+            raise "example seed dynamic work overlay failed: #{inspect(reason)}"
+        end
+
+      nil ->
+        raise "example seed dynamic work overlay failed: paused checkout run missing"
+    end
+  end
+
+  defp dynamic_origin(run, step) do
+    run.attempts
+    |> Enum.find(&(Map.get(&1, :step) == step and Map.get(&1, :applied?)))
+    |> case do
+      %{runnable_key: runnable_key, attempt_number: attempt_number} ->
+        {:ok, %{runnable_key: runnable_key, step: step, attempt: attempt_number}}
+
+      _missing ->
+        {:error, {:dynamic_origin, :missing_applied_step}}
+    end
+  end
+
+  defp dynamic_work_overlay(origin) do
+    %{
+      dynamic_key: "fraud_review",
+      origin: origin,
+      reason: :operator_inspection,
+      nodes: [
+        %{
+          id: "fraud_review",
+          action: "review_risk",
+          metadata: %{queue: "risk"}
+        }
+      ]
+    }
   end
 
   defp reset_example_state! do

@@ -681,6 +681,129 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert raw_html =~ "ReleaseInventory"
   end
 
+  test "renders dynamic work overlays in visual and raw inspection views" do
+    origin = %{step: "capture_payment", branch: "fraud_review"}
+    recorded_at = ~U[2026-05-15 10:17:00Z]
+
+    dynamic_work = [
+      %{
+        "dynamic_key" => "fraud_review",
+        "status" => "recorded",
+        "reason" => "risk_signal",
+        "origin" => origin,
+        "nodes" => [
+          %{"id" => "fraud_review", "action" => "review_risk", "metadata" => %{"queue" => "risk"}}
+        ],
+        "edges" => [
+          %{
+            "id" => "capture_payment:dynamic:fraud_review",
+            "from" => "capture_payment",
+            "to" => "fraud_review"
+          }
+        ],
+        "recorded_at" => recorded_at
+      },
+      %{"nodes" => "stale"}
+    ]
+
+    base_graph =
+      graph_inspection(:running,
+        run_id: "run-dynamic-work",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_node_id: "capture_payment",
+        nodes: [
+          graph_node("capture_payment", :running, true),
+          %{
+            graph_node("fraud_review", :pending, false)
+            | dynamic?: true,
+              origin: origin,
+              metadata: %{queue: "risk"}
+          }
+        ],
+        edges: [
+          %{graph_edge("capture_payment", "fraud_review", :dynamic) | type: :dynamic}
+        ]
+      )
+
+    graph = %{
+      base_graph
+      | dynamic_work: dynamic_work,
+        dynamic_work_overlays: [
+          %{
+            "dynamic_key" => "fraud_review",
+            "status" => "recorded",
+            "reason" => "risk_signal",
+            "origin" => origin,
+            "origin_node_id" => "capture_payment",
+            "added_node_ids" => ["fraud_review"],
+            "added_edge_ids" => ["capture_payment:dynamic:fraud_review"],
+            "node_count" => 1,
+            "edge_count" => 1,
+            "recorded_at" => recorded_at
+          },
+          %{}
+        ]
+    }
+
+    snapshot =
+      snapshot(:running,
+        run_id: "run-dynamic-work",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_step: "capture_payment",
+        reason: :attempt_visible
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "run-dynamic-work",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        reason: :attempt_visible,
+        step: "capture_payment",
+        next_actions: [:wait_for_worker_claim]
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-dynamic-work"},
+        "/sonar/runs/run-dynamic-work",
+        mounted_socket
+      )
+
+    html =
+      loaded_socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Dynamic work overlays"
+    assert html =~ "inspection-only"
+    assert html =~ "fraud_review"
+    assert html =~ "capture_payment"
+    assert html =~ "risk signal"
+    assert html =~ "1 node"
+    assert html =~ "1 edge"
+    assert html =~ "2026-05-15T10:17:00Z"
+    assert html =~ "squid-sonar-workflow-node-dynamic"
+    assert html =~ "Dynamic"
+
+    {:noreply, raw_socket} =
+      RunLive.handle_event("select_workflow_panel", %{"view" => "raw"}, loaded_socket)
+
+    raw_html =
+      raw_socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
+    assert raw_html =~ "&quot;dynamic_work&quot;"
+    assert raw_html =~ "&quot;dynamic_work_overlays&quot;"
+    assert raw_html =~ "capture_payment:dynamic:fraud_review"
+  end
+
   test "renders recovery policy diagnostics when present" do
     recovery = compensation_recovery("ReleaseInventory")
 
