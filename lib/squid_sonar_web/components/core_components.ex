@@ -7,6 +7,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :status, :atom, required: true
 
+  @spec status_badge(map()) :: Phoenix.LiveView.Rendered.t()
   def status_badge(assigns) do
     ~H"""
     <span class={["squid-sonar-badge", "squid-sonar-badge-#{@status}"]}>
@@ -17,6 +18,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :mode, :atom, required: true
 
+  @spec graph_mode_badge(map()) :: Phoenix.LiveView.Rendered.t()
   def graph_mode_badge(assigns) do
     ~H"""
     <span class={[
@@ -31,6 +33,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :flash, :map, required: true
 
+  @spec flash_messages(map()) :: Phoenix.LiveView.Rendered.t()
   def flash_messages(assigns) do
     assigns =
       assigns
@@ -68,6 +71,7 @@ defmodule SquidSonarWeb.CoreComponents do
   attr :count, :integer, required: true
   attr :active, :boolean, default: false
 
+  @spec status_nav_item(map()) :: Phoenix.LiveView.Rendered.t()
   def status_nav_item(assigns) do
     ~H"""
     <label class={["squid-sonar-nav-item", @active && "is-active"]}>
@@ -82,6 +86,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :theme, :atom, required: true
 
+  @spec theme_switcher(map()) :: Phoenix.LiveView.Rendered.t()
   def theme_switcher(assigns) do
     ~H"""
     <div class="squid-sonar-theme-switcher" aria-label="Theme">
@@ -108,6 +113,10 @@ defmodule SquidSonarWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Renders the dashboard refresh button.
+  """
+  @spec refresh_button(map()) :: Phoenix.LiveView.Rendered.t()
   def refresh_button(assigns) do
     ~H"""
     <button
@@ -168,6 +177,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :error, :any, required: true
 
+  @spec dashboard_error(map()) :: Phoenix.LiveView.Rendered.t()
   def dashboard_error(assigns) do
     ~H"""
     <section class="squid-sonar-alert" role="alert">
@@ -177,6 +187,10 @@ defmodule SquidSonarWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Renders the empty dashboard state.
+  """
+  @spec empty_runs(map()) :: Phoenix.LiveView.Rendered.t()
   def empty_runs(assigns) do
     ~H"""
     <div class="squid-sonar-empty">
@@ -188,6 +202,7 @@ defmodule SquidSonarWeb.CoreComponents do
   attr :dashboard, :map, required: true
   attr :prefix, :string, default: ""
 
+  @spec runs_panel(map()) :: Phoenix.LiveView.Rendered.t()
   def runs_panel(assigns) do
     ~H"""
     <section class="squid-sonar-panel">
@@ -250,6 +265,7 @@ defmodule SquidSonarWeb.CoreComponents do
   attr :runs, :list, required: true
   attr :prefix, :string, default: ""
 
+  @spec runs_table(map()) :: Phoenix.LiveView.Rendered.t()
   def runs_table(assigns) do
     ~H"""
     <div class="squid-sonar-table-wrap">
@@ -305,6 +321,7 @@ defmodule SquidSonarWeb.CoreComponents do
   attr :page_size, :integer, required: true
   attr :page_sizes, :list, required: true
 
+  @spec pagination(map()) :: Phoenix.LiveView.Rendered.t()
   def pagination(assigns) do
     assigns =
       assigns
@@ -357,6 +374,7 @@ defmodule SquidSonarWeb.CoreComponents do
   attr :prefix, :string, default: ""
   attr :workflow_panel_view, :atom, default: :visual
 
+  @spec run_detail(map()) :: Phoenix.LiveView.Rendered.t()
   def run_detail(assigns) do
     ~H"""
     <section class="squid-sonar-detail">
@@ -611,6 +629,7 @@ defmodule SquidSonarWeb.CoreComponents do
   attr :value, :any, required: true
   attr :variant, :atom, default: :strong
 
+  @spec detail_item(map()) :: Phoenix.LiveView.Rendered.t()
   def detail_item(assigns) do
     ~H"""
     <div class="squid-sonar-detail-item">
@@ -626,6 +645,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :value, :any, required: true
 
+  @spec timestamp(map()) :: Phoenix.LiveView.Rendered.t()
   def timestamp(assigns) do
     ~H"""
     <time>{@value |> format_time()}</time>
@@ -753,9 +773,7 @@ defmodule SquidSonarWeb.CoreComponents do
   defp last_error(nil), do: "None"
 
   defp last_error(error) when is_map(error) do
-    error
-    |> Map.take([:code, :message, "code", "message"])
-    |> case do
+    case Map.take(error, [:code, :message, "code", "message"]) do
       empty when empty == %{} -> "Present"
       safe_error -> inspect(safe_error)
     end
@@ -792,10 +810,9 @@ defmodule SquidSonarWeb.CoreComponents do
   defp format_graph_status(status), do: format_value(status)
 
   defp compensation_recovery(%{recovery: recovery}) when is_map(recovery) do
-    with compensation when is_map(compensation) <-
-           Map.get(recovery, :compensation) || Map.get(recovery, "compensation"),
-         callback when not is_nil(callback) <-
-           Map.get(compensation, :callback) || Map.get(compensation, "callback") do
+    with compensation when is_map(compensation) <- map_value(recovery, :compensation),
+         callback when (is_binary(callback) or is_atom(callback)) and not is_nil(callback) <-
+           map_value(compensation, :callback) do
       %{
         callback: format_recovery_callback(callback),
         status:
@@ -863,6 +880,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :detail, :map, required: true
 
+  @spec run_control_buttons(map()) :: Phoenix.LiveView.Rendered.t()
   def run_control_buttons(assigns) do
     available_actions = available_control_actions(assigns.detail)
 
@@ -930,7 +948,6 @@ defmodule SquidSonarWeb.CoreComponents do
     """
   end
 
-  # Determine which control actions are available based on run status and diagnostic
   defp available_control_actions(%{summary: summary, explanation: explanation}) do
     status = summary.status
     terminal? = summary.terminal?
@@ -939,29 +956,18 @@ defmodule SquidSonarWeb.CoreComponents do
     approval_step? = approval_step?(explanation)
     pause_step? = pause_step?(explanation, status)
 
-    actions = []
-
-    # Cancel is available for non-terminal runs
     actions =
-      if not terminal? and status not in [:cancelled], do: [:cancel | actions], else: actions
-
-    # Resume only applies to pause steps; approval pauses use approve/reject.
-    actions =
-      if manual_resolution? and pause_step?,
-        do: [:resume | actions],
-        else: actions
-
-    # Approve/Reject are available for approval steps
-    actions =
-      if manual_resolution? and approval_step?,
-        do: [:approve, :reject | actions],
-        else: actions
-
-    # Replay is available for terminal runs
-    actions = if terminal?, do: [:replay | actions], else: actions
+      []
+      |> maybe_add_control_action(not terminal? and status not in [:cancelled], [:cancel])
+      |> maybe_add_control_action(manual_resolution? and pause_step?, [:resume])
+      |> maybe_add_control_action(manual_resolution? and approval_step?, [:approve, :reject])
+      |> maybe_add_control_action(terminal?, [:replay])
 
     Enum.reverse(actions)
   end
+
+  defp maybe_add_control_action(actions, true, new_actions), do: new_actions ++ actions
+  defp maybe_add_control_action(actions, false, _new_actions), do: actions
 
   defp pause_step?(explanation, status) do
     case manual_kind(explanation) do
@@ -980,9 +986,7 @@ defmodule SquidSonarWeb.CoreComponents do
   end
 
   defp manual_kind(%{details: details, evidence: evidence}) do
-    details
-    |> manual_kind_from_map()
-    |> case do
+    case manual_kind_from_map(details) do
       nil ->
         evidence
         |> manual_state_from_evidence()

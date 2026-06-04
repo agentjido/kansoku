@@ -3,51 +3,112 @@ defmodule SquidSonar.SquidieClient do
   Client boundary for Squidie public APIs.
   """
 
+  @doc """
+  Lists recent Squidie runs.
+  """
   @callback list_runs(keyword(), keyword()) ::
               {:ok, [Squidie.ReadModel.Listing.Summary.t()]} | {:error, term()}
+  @doc """
+  Loads a run inspection snapshot.
+  """
   @callback inspect_run(term(), keyword()) ::
               {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+  @doc """
+  Loads graph inspection data for a run.
+  """
   @callback inspect_run_graph(term(), keyword()) ::
               {:ok, Squidie.Runs.GraphInspection.t()} | {:error, term()}
+  @doc """
+  Loads explanation data for a run.
+  """
   @callback explain_run(term(), keyword()) ::
               {:ok, Squidie.ReadModel.Explanation.Diagnostic.t()} | {:error, term()}
+  @doc """
+  Requests run cancellation.
+  """
   @callback cancel(term(), keyword()) ::
               {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+  @doc """
+  Resumes a paused run.
+  """
   @callback resume(term(), map(), keyword()) ::
               {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+  @doc """
+  Approves a manual approval run.
+  """
   @callback approve(term(), map(), keyword()) ::
               {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+  @doc """
+  Rejects a manual approval run.
+  """
   @callback reject(term(), map(), keyword()) ::
               {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+  @doc """
+  Starts a replay for a terminal run.
+  """
   @callback replay(term(), keyword()) ::
               {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
 
-  @behaviour __MODULE__
-
-  @impl true
+  @doc """
+  Lists recent Squidie runs through the configured runtime.
+  """
+  @spec list_runs(keyword(), keyword()) ::
+          {:ok, [Squidie.ReadModel.Listing.Summary.t()]} | {:error, term()}
   def list_runs(filters, opts), do: Squidie.list_runs(filters, opts)
 
-  @impl true
+  @doc """
+  Loads a run inspection snapshot from Squidie.
+  """
+  @spec inspect_run(term(), keyword()) ::
+          {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
   def inspect_run(run_id, opts), do: Squidie.inspect_run(run_id, opts)
 
-  @impl true
+  @doc """
+  Loads graph inspection data for a Squidie run.
+  """
+  @spec inspect_run_graph(term(), keyword()) ::
+          {:ok, Squidie.Runs.GraphInspection.t()} | {:error, term()}
   def inspect_run_graph(run_id, opts), do: Squidie.inspect_run_graph(run_id, opts)
 
-  @impl true
+  @doc """
+  Loads operator-facing explanation data for a run.
+  """
+  @spec explain_run(term(), keyword()) ::
+          {:ok, Squidie.ReadModel.Explanation.Diagnostic.t()} | {:error, term()}
   def explain_run(run_id, opts), do: Squidie.explain_run(run_id, opts)
 
-  @impl true
+  @doc """
+  Requests cancellation for a run through Squidie.
+  """
+  @spec cancel(term(), keyword()) ::
+          {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
   def cancel(run_id, opts), do: Squidie.cancel(run_id, opts)
 
-  @impl true
+  @doc """
+  Resumes a paused run with host-provided control attributes.
+  """
+  @spec resume(term(), map(), keyword()) ::
+          {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
   def resume(run_id, attrs, opts), do: Squidie.resume(run_id, attrs, opts)
 
-  @impl true
+  @doc """
+  Approves a manual approval run with host-provided control attributes.
+  """
+  @spec approve(term(), map(), keyword()) ::
+          {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
   def approve(run_id, attrs, opts), do: Squidie.approve(run_id, attrs, opts)
 
-  @impl true
+  @doc """
+  Rejects a manual approval run with host-provided control attributes.
+  """
+  @spec reject(term(), map(), keyword()) ::
+          {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
   def reject(run_id, attrs, opts), do: Squidie.reject(run_id, attrs, opts)
 
-  @impl true
+  @doc """
+  Starts a replay for a terminal run.
+  """
+  @spec replay(term(), keyword()) ::
+          {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
   def replay(run_id, opts), do: Squidie.replay(run_id, opts)
 end

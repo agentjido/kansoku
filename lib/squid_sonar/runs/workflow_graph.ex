@@ -103,7 +103,9 @@ defmodule SquidSonar.Runs.WorkflowGraph do
 
   defp definition_recovery({:ok, definition}, step_id) do
     with step_name when is_atom(step_name) <- definition_step_name(definition, step_id),
-         {:ok, callback} when not is_nil(callback) <-
+         {:ok, callback}
+         when is_binary(callback) or
+                (is_atom(callback) and not is_nil(callback) and not is_boolean(callback)) <-
            Definition.step_compensation_callback(definition, step_name) do
       %{compensation: %{callback: callback, status: :available}}
     else

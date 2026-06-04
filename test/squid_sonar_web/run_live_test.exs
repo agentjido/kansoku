@@ -101,11 +101,13 @@ defmodule SquidSonarWeb.RunLiveTest do
     FakeSquidieClient.put_inspect_run_graph({:ok, graph})
     FakeSquidieClient.put_explain_run({:ok, explanation})
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
-    {:noreply, socket} = RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", socket)
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", mounted_socket)
 
     html =
-      socket.assigns
+      loaded_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
@@ -172,27 +174,31 @@ defmodule SquidSonarWeb.RunLiveTest do
       {:ok, snapshot(:cancelled, run_id: "run-1", workflow: Atom.to_string(CheckoutWorkflow))}
     )
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
-    {:noreply, socket} = RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", socket)
-    {:noreply, socket} = RunLive.handle_event("cancel", %{"run-id" => "run-1"}, socket)
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
-    html =
-      socket.assigns
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", mounted_socket)
+
+    {:noreply, cancelled_socket} =
+      RunLive.handle_event("cancel", %{"run-id" => "run-1"}, loaded_socket)
+
+    feedback_html =
+      cancelled_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
-    assert html =~ "Run cancelled successfully"
-    assert html =~ "phx-hook=\"SquidSonarFlash\""
-    assert html =~ "aria-label=\"Dismiss notification\""
+    assert feedback_html =~ "Run cancelled successfully"
+    assert feedback_html =~ "phx-hook=\"SquidSonarFlash\""
+    assert feedback_html =~ "aria-label=\"Dismiss notification\""
 
-    {:noreply, socket} = RunLive.handle_event("clear_flash", %{}, socket)
+    {:noreply, cleared_socket} = RunLive.handle_event("clear_flash", %{}, cancelled_socket)
 
-    html =
-      socket.assigns
+    cleared_html =
+      cleared_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
-    refute html =~ "Run cancelled successfully"
+    refute cleared_html =~ "Run cancelled successfully"
   end
 
   test "refreshes run detail after control feedback while the run is still active" do
@@ -257,21 +263,22 @@ defmodule SquidSonarWeb.RunLiveTest do
 
     FakeSquidieClient.put_approve({:ok, running_snapshot})
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
-    {:noreply, socket} =
-      RunLive.handle_params(%{"id" => "run-approval"}, "/sonar/runs/run-approval", socket)
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "run-approval"}, "/sonar/runs/run-approval", mounted_socket)
 
-    {:noreply, socket} = RunLive.handle_event("approve", %{"run-id" => "run-approval"}, socket)
+    {:noreply, approved_socket} =
+      RunLive.handle_event("approve", %{"run-id" => "run-approval"}, loaded_socket)
 
-    assert socket.assigns.detail.summary.status == :running
+    assert approved_socket.assigns.detail.summary.status == :running
 
-    {:noreply, socket} = RunLive.handle_info(:refresh_run, socket)
+    {:noreply, refreshed_socket} = RunLive.handle_info(:refresh_run, approved_socket)
 
-    assert socket.assigns.detail.summary.status == :completed
+    assert refreshed_socket.assigns.detail.summary.status == :completed
 
     html =
-      socket.assigns
+      refreshed_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
@@ -317,13 +324,13 @@ defmodule SquidSonarWeb.RunLiveTest do
     FakeSquidieClient.put_inspect_run_graph({:ok, graph})
     FakeSquidieClient.put_explain_run({:ok, explanation})
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
-    {:noreply, socket} =
-      RunLive.handle_params(%{"id" => "run-approval"}, "/sonar/runs/run-approval", socket)
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "run-approval"}, "/sonar/runs/run-approval", mounted_socket)
 
     html =
-      socket.assigns
+      loaded_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
@@ -375,13 +382,14 @@ defmodule SquidSonarWeb.RunLiveTest do
       {:ok, snapshot(:running, run_id: run_id, workflow: Atom.to_string(CheckoutWorkflow))}
     end)
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
-    socket = Phoenix.Component.assign(socket, :control_actor, actor)
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+    actor_socket = Phoenix.Component.assign(mounted_socket, :control_actor, actor)
 
-    {:noreply, socket} =
-      RunLive.handle_params(%{"id" => "run-approval"}, "/sonar/runs/run-approval", socket)
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "run-approval"}, "/sonar/runs/run-approval", actor_socket)
 
-    {:noreply, _socket} = RunLive.handle_event("approve", %{"run-id" => "run-approval"}, socket)
+    {:noreply, _approved_socket} =
+      RunLive.handle_event("approve", %{"run-id" => "run-approval"}, loaded_socket)
 
     assert_receive {:approve_attrs, "run-approval", %{actor: ^actor}}
   end
@@ -420,12 +428,16 @@ defmodule SquidSonarWeb.RunLiveTest do
     FakeSquidieClient.put_explain_run({:ok, explanation})
     FakeSquidieClient.put_cancel({:error, {:missing_config, [:repo]}})
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
-    {:noreply, socket} = RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", socket)
-    {:noreply, socket} = RunLive.handle_event("cancel", %{"run-id" => "run-1"}, socket)
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", mounted_socket)
+
+    {:noreply, cancelled_socket} =
+      RunLive.handle_event("cancel", %{"run-id" => "run-1"}, loaded_socket)
 
     html =
-      socket.assigns
+      cancelled_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
@@ -506,15 +518,18 @@ defmodule SquidSonarWeb.RunLiveTest do
          )}
     end)
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
-    {:noreply, socket} = RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", socket)
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", mounted_socket)
 
     FakeSquidieClient.put_replay({:ok, replayed_snapshot})
 
-    {:noreply, socket} = RunLive.handle_event("replay", %{"run-id" => "run-1"}, socket)
+    {:noreply, replayed_socket} =
+      RunLive.handle_event("replay", %{"run-id" => "run-1"}, loaded_socket)
 
-    assert socket.assigns.detail.summary.id == "run-2"
-    assert {:live, :patch, %{to: "/runs/run-2"}} = socket.redirected
+    assert replayed_socket.assigns.detail.summary.id == "run-2"
+    assert {:live, :patch, %{to: "/runs/run-2"}} = replayed_socket.redirected
   end
 
   test "renders journal history graphs when the workflow definition is unavailable" do
@@ -561,13 +576,13 @@ defmodule SquidSonarWeb.RunLiveTest do
     FakeSquidieClient.put_inspect_run_graph({:ok, graph})
     FakeSquidieClient.put_explain_run({:ok, explanation})
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
-    {:noreply, socket} =
-      RunLive.handle_params(%{"id" => "run-history"}, "/sonar/runs/run-history", socket)
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "run-history"}, "/sonar/runs/run-history", mounted_socket)
 
     html =
-      socket.assigns
+      loaded_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
@@ -623,16 +638,20 @@ defmodule SquidSonarWeb.RunLiveTest do
     FakeSquidieClient.put_inspect_run_graph({:ok, graph})
     FakeSquidieClient.put_explain_run({:ok, explanation})
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
-    {:noreply, socket} =
-      RunLive.handle_params(%{"id" => "run-raw-graph"}, "/sonar/runs/run-raw-graph", socket)
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-raw-graph"},
+        "/sonar/runs/run-raw-graph",
+        mounted_socket
+      )
 
-    assert socket.assigns.detail.explanation.evidence ==
+    assert loaded_socket.assigns.detail.explanation.evidence ==
              recovery_policy_evidence("capture_payment", recovery)
 
     visual_html =
-      socket.assigns
+      loaded_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
@@ -644,11 +663,11 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert visual_html =~ "available"
     refute visual_html =~ ~s("current_node_ids")
 
-    {:noreply, socket} =
-      RunLive.handle_event("select_workflow_panel", %{"view" => "raw"}, socket)
+    {:noreply, raw_socket} =
+      RunLive.handle_event("select_workflow_panel", %{"view" => "raw"}, loaded_socket)
 
     raw_html =
-      socket.assigns
+      raw_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
@@ -710,17 +729,17 @@ defmodule SquidSonarWeb.RunLiveTest do
     FakeSquidieClient.put_inspect_run_graph({:ok, graph})
     FakeSquidieClient.put_explain_run({:ok, explanation})
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
-    {:noreply, socket} =
+    {:noreply, loaded_socket} =
       RunLive.handle_params(
         %{"id" => "run-recovery-summary"},
         "/sonar/runs/run-recovery-summary",
-        socket
+        mounted_socket
       )
 
     html =
-      socket.assigns
+      loaded_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
@@ -758,11 +777,13 @@ defmodule SquidSonarWeb.RunLiveTest do
        )}
     )
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
-    {:noreply, socket} = RunLive.handle_params(%{"id" => "run-no-recovery"}, "", socket)
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "run-no-recovery"}, "", mounted_socket)
 
     html =
-      socket.assigns
+      loaded_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 
@@ -773,11 +794,13 @@ defmodule SquidSonarWeb.RunLiveTest do
   test "renders load errors without leaking internal reason details" do
     FakeSquidieClient.put_inspect_run({:error, {:missing_config, [:repo]}})
 
-    {:ok, socket} = RunLive.mount(%{}, %{}, %Socket{})
-    {:noreply, socket} = RunLive.handle_params(%{"id" => "bad"}, "/sonar/runs/bad", socket)
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "bad"}, "/sonar/runs/bad", mounted_socket)
 
     html =
-      socket.assigns
+      loaded_socket.assigns
       |> RunLive.render()
       |> rendered_to_string()
 

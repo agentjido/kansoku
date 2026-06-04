@@ -85,11 +85,11 @@ defmodule SquidSonarWeb.PageLiveTest do
 
     {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
 
-    {:noreply, socket} =
+    {:noreply, filtered_socket} =
       PageLive.handle_event("filter", %{"filters" => %{"status" => "failed"}}, socket)
 
     html =
-      socket.assigns
+      filtered_socket.assigns
       |> PageLive.render()
       |> rendered_to_string()
 
@@ -112,26 +112,26 @@ defmodule SquidSonarWeb.PageLiveTest do
 
     {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
 
-    html =
+    initial_html =
       socket.assigns
       |> PageLive.render()
       |> rendered_to_string()
 
-    assert html =~ "Deadline"
-    assert html =~ "due soon"
-    assert html =~ "escalated"
-    assert html =~ "capture_payment"
+    assert initial_html =~ "Deadline"
+    assert initial_html =~ "due soon"
+    assert initial_html =~ "escalated"
+    assert initial_html =~ "capture_payment"
 
-    {:noreply, socket} =
+    {:noreply, filtered_socket} =
       PageLive.handle_event("filter", %{"filters" => %{"deadline" => "escalated"}}, socket)
 
-    html =
-      socket.assigns
+    filtered_html =
+      filtered_socket.assigns
       |> PageLive.render()
       |> rendered_to_string()
 
-    assert html =~ "escalated_checkout"
-    refute html =~ "due_soon_checkout"
+    assert filtered_html =~ "escalated_checkout"
+    refute filtered_html =~ "due_soon_checkout"
   end
 
   test "paginates runs through the dashboard boundary" do
@@ -145,10 +145,10 @@ defmodule SquidSonarWeb.PageLiveTest do
     FakeSquidieClient.put_list_runs({:ok, runs})
 
     {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
-    {:noreply, socket} = PageLive.handle_event("paginate", %{"page" => "2"}, socket)
+    {:noreply, paginated_socket} = PageLive.handle_event("paginate", %{"page" => "2"}, socket)
 
     html =
-      socket.assigns
+      paginated_socket.assigns
       |> PageLive.render()
       |> rendered_to_string()
 
@@ -161,10 +161,10 @@ defmodule SquidSonarWeb.PageLiveTest do
     FakeSquidieClient.put_list_runs({:ok, [summary(:failed, "failing_checkout", "error-queue")]})
 
     {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
-    {:noreply, socket} = PageLive.handle_event("set_theme", %{"theme" => "dark"}, socket)
+    {:noreply, themed_socket} = PageLive.handle_event("set_theme", %{"theme" => "dark"}, socket)
 
     html =
-      socket.assigns
+      themed_socket.assigns
       |> PageLive.render()
       |> rendered_to_string()
 
@@ -185,7 +185,7 @@ defmodule SquidSonarWeb.PageLiveTest do
 
     {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
 
-    {:noreply, socket} =
+    {:noreply, filtered_socket} =
       PageLive.handle_event("filter", %{"filters" => %{"status" => "failed"}}, socket)
 
     FakeSquidieClient.put_list_runs(fn filters, _opts ->
@@ -193,16 +193,16 @@ defmodule SquidSonarWeb.PageLiveTest do
       {:ok, [summary(:failed, "new_failure_checkout", "error-queue")]}
     end)
 
-    {:noreply, socket} = PageLive.handle_info(:refresh_dashboard, socket)
+    {:noreply, refreshed_socket} = PageLive.handle_info(:refresh_dashboard, filtered_socket)
 
     html =
-      socket.assigns
+      refreshed_socket.assigns
       |> PageLive.render()
       |> rendered_to_string()
 
     assert html =~ "new_failure_checkout"
     refute html =~ "completed_checkout"
-    assert socket.assigns.dashboard.filters.status == :failed
+    assert refreshed_socket.assigns.dashboard.filters.status == :failed
   end
 
   defp render_page do

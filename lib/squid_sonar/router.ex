@@ -70,7 +70,10 @@ defmodule SquidSonar.Router do
     end
   end
 
-  @doc false
+  @doc """
+  Normalizes mount options for the generated SquidSonar route block.
+  """
+  @spec __options__(String.t(), keyword()) :: {atom(), keyword(), keyword()}
   def __options__(prefix, opts) do
     opts = Keyword.merge(@default_opts, opts)
 
@@ -94,12 +97,18 @@ defmodule SquidSonar.Router do
     {session_name, session_opts, as: session_name}
   end
 
-  @doc false
+  @doc """
+  Builds the LiveView session with the default manual-control actor.
+  """
+  @spec __session__(Plug.Conn.t() | map(), String.t(), String.t(), String.t()) :: map()
   def __session__(_conn, prefix, live_path, live_transport) do
     __session__(%{}, prefix, live_path, live_transport, @default_control_actor)
   end
 
-  @doc false
+  @doc """
+  Builds the LiveView session and resolves the configured manual-control actor.
+  """
+  @spec __session__(Plug.Conn.t() | map(), String.t(), String.t(), String.t(), term()) :: map()
   def __session__(conn, prefix, live_path, live_transport, control_actor) do
     %{
       "prefix" => prefix,
@@ -109,7 +118,10 @@ defmodule SquidSonar.Router do
     }
   end
 
-  @doc false
+  @doc """
+  Returns the default manual-control actor used when the host does not provide one.
+  """
+  @spec default_control_actor() :: map()
   def default_control_actor, do: @default_control_actor
 
   defp validate_opt!({:transport, transport}) do

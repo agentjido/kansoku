@@ -67,17 +67,20 @@ defmodule SquidSonarWeb.AssetsTest do
   end
 
   defp assert_asset_response(action, expected_body) do
-    digest = apply(SquidSonarWeb.Assets, :"#{action}_digest", [])
+    digest = asset_digest(action)
 
-    conn =
+    request_conn =
       :get
       |> Plug.Test.conn("/sonar/vendor/#{action}-#{digest}")
       |> Map.put(:params, %{"digest" => digest})
 
-    conn = apply(SquidSonarWeb.Assets, action, [conn, %{}])
+    conn = apply(SquidSonarWeb.Assets, action, [request_conn, %{}])
 
     assert conn.status == 200
     assert Plug.Conn.get_resp_header(conn, "content-type") == ["text/javascript; charset=utf-8"]
     assert conn.resp_body =~ expected_body
   end
+
+  defp asset_digest(:phoenix), do: SquidSonarWeb.Assets.phoenix_digest()
+  defp asset_digest(:live_view), do: SquidSonarWeb.Assets.live_view_digest()
 end

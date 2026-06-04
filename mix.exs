@@ -69,8 +69,13 @@ defmodule SquidSonar.MixProject do
       {:phoenix_live_view, "~> 1.1"},
       {:jason, "~> 1.4"},
       squidie_dep(),
+      {:ex_slop, "~> 0.4.2", only: [:dev, :test], runtime: false},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:excoveralls, "~> 0.18", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:doctor, "~> 0.23.0", only: [:dev, :test], runtime: false},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
   end
@@ -83,7 +88,12 @@ defmodule SquidSonar.MixProject do
     [
       precommit: [
         "compile --warnings-as-errors",
+        "xref graph --format cycles --label compile-connected --fail-above 0",
         "format --check-formatted",
+        "credo --strict",
+        "doctor",
+        "deps.audit",
+        "dialyzer",
         "test"
       ]
     ]
