@@ -45,7 +45,7 @@ defmodule SquidSonarExample.MixProject do
   end
 
   defp squidie_dep do
-    {:squidie, github: "dark-trench/squidie", branch: "main"}
+    {:squidie, "~> 0.1.2"}
   end
 
   defp aliases do
