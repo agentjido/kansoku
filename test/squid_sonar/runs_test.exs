@@ -28,7 +28,7 @@ defmodule SquidSonar.RunsTest do
         step: [type: :map, required: true]
       ]
 
-    @impl SquidMesh.Step
+    @impl Squidie.Step
     def run(_input, _context), do: {:ok, %{}}
   end
 
