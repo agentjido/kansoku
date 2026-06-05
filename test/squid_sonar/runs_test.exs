@@ -282,6 +282,123 @@ defmodule SquidSonar.RunsTest do
     assert Enum.find(detail.workflow_graph.nodes, &(&1.name == "capture_payment")).recovery == nil
   end
 
+  test "projects dynamic work overlays and graph metadata" do
+    origin = %{step: "capture_payment", branch: "fraud_review"}
+    recorded_at = ~U[2026-05-15 10:17:00Z]
+
+    dynamic_work = [
+      %{
+        dynamic_key: "fraud_review",
+        status: :recorded,
+        reason: :risk_signal,
+        origin: origin,
+        nodes: [
+          %{
+            id: "fraud_review",
+            action: "review_risk",
+            status: :scheduled,
+            metadata: %{queue: "risk"}
+          }
+        ],
+        edges: [
+          %{
+            id: "capture_payment:dynamic:fraud_review",
+            from: "capture_payment",
+            to: "fraud_review"
+          }
+        ],
+        recorded_at: recorded_at
+      },
+      %{nodes: "stale"}
+    ]
+
+    base_graph =
+      graph_inspection(:running,
+        run_id: "run-dynamic-work",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_node_id: "capture_payment",
+        nodes: [
+          graph_node("capture_payment", :running, true),
+          %{
+            graph_node("fraud_review", :pending, false)
+            | dynamic?: true,
+              origin: origin,
+              metadata: %{queue: "risk"}
+          }
+        ],
+        edges: [
+          %{graph_edge("capture_payment", "fraud_review", :dynamic) | type: :dynamic}
+        ]
+      )
+
+    graph = %{
+      base_graph
+      | dynamic_work: dynamic_work,
+        dynamic_work_overlays: [
+          %{
+            dynamic_key: "fraud_review",
+            status: :recorded,
+            reason: :risk_signal,
+            origin: origin,
+            origin_node_id: "capture_payment",
+            added_node_ids: ["fraud_review"],
+            added_edge_ids: ["capture_payment:dynamic:fraud_review"],
+            node_count: 1,
+            edge_count: 1,
+            recorded_at: recorded_at
+          },
+          %{}
+        ]
+    }
+
+    snapshot =
+      snapshot(:running,
+        run_id: "run-dynamic-work",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        reason: :attempt_visible,
+        current_step: "capture_payment"
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "run-dynamic-work",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        reason: :attempt_visible,
+        step: "capture_payment"
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    assert {:ok, %RunDetail{} = detail} = Runs.get_run("run-dynamic-work", client: @client)
+
+    assert [
+             %RunDetail.DynamicWorkOverlay{
+               dynamic_key: "fraud_review",
+               status: :recorded,
+               reason: :risk_signal,
+               origin_node_id: "capture_payment",
+               added_node_ids: ["fraud_review"],
+               added_edge_ids: ["capture_payment:dynamic:fraud_review"],
+               node_count: 1,
+               edge_count: 1,
+               recorded_at: ^recorded_at
+             }
+           ] = detail.dynamic_work_overlays
+
+    assert detail.dynamic_work == dynamic_work
+    assert detail.graph_inspection.dynamic_work == dynamic_work
+    assert detail.graph_inspection.dynamic_work_overlays != []
+
+    dynamic_node = Enum.find(detail.workflow_graph.nodes, &(&1.name == "fraud_review"))
+    assert dynamic_node.dynamic?
+    assert dynamic_node.origin == origin
+    assert dynamic_node.metadata == %{queue: "risk"}
+
+    assert [%{type: :dynamic, status: :pending}] = detail.workflow_graph.edges
+  end
+
   test "projects safe recovery policy diagnostics from explanation evidence" do
     reserve_recovery = compensation_recovery("ReleaseInventory")
 

@@ -13,27 +13,46 @@ defmodule SquidSonar.Runs.WorkflowGraph do
     @type t :: %__MODULE__{
             name: atom() | String.t(),
             label: String.t(),
+            action: atom() | String.t() | nil,
             status: atom(),
             current?: boolean(),
             terminal?: boolean(),
             deadline: map() | nil,
-            recovery: map() | nil
+            recovery: map() | nil,
+            dynamic?: boolean(),
+            origin: map() | nil,
+            metadata: map()
           }
 
-    defstruct [:name, :label, :status, :deadline, :recovery, current?: false, terminal?: false]
+    defstruct [
+      :name,
+      :label,
+      :action,
+      :status,
+      :deadline,
+      :recovery,
+      :origin,
+      current?: false,
+      terminal?: false,
+      dynamic?: false,
+      metadata: %{}
+    ]
   end
 
   defmodule Edge do
     @moduledoc false
 
     @type t :: %__MODULE__{
+            id: String.t() | nil,
             from: atom() | String.t(),
             to: atom() | String.t(),
-            outcome: atom(),
+            type: atom(),
+            status: atom(),
+            outcome: atom() | nil,
             recovery: atom() | nil
           }
 
-    defstruct [:from, :to, :outcome, :recovery]
+    defstruct [:id, :from, :to, :type, :status, :outcome, :recovery]
   end
 
   @type t :: %__MODULE__{
@@ -79,16 +98,28 @@ defmodule SquidSonar.Runs.WorkflowGraph do
     %Node{
       name: id,
       label: format_name(id),
+      action: Map.get(node, :action),
       status: status,
       deadline: Map.get(node, :deadline),
       recovery: Map.get(node, :recovery) || definition_recovery(definition, id),
+      dynamic?: Map.get(node, :dynamic?, false),
+      origin: Map.get(node, :origin),
+      metadata: Map.get(node, :metadata, %{}),
       current?: current?,
       terminal?: terminal_node?(id, status)
     }
   end
 
-  defp graph_edge(%{from: from, to: to, outcome: outcome, recovery: recovery}) do
-    %Edge{from: from, to: to, outcome: outcome, recovery: recovery}
+  defp graph_edge(%{from: from, to: to} = edge) do
+    %Edge{
+      id: Map.get(edge, :id),
+      from: from,
+      to: to,
+      type: Map.get(edge, :type, :transition),
+      status: Map.get(edge, :status, :pending),
+      outcome: Map.get(edge, :outcome),
+      recovery: Map.get(edge, :recovery)
+    }
   end
 
   defp terminal_node?(id, status) do
