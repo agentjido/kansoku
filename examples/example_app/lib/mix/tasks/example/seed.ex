@@ -6,6 +6,8 @@ defmodule Mix.Tasks.Example.Seed do
   use Mix.Task
 
   @shortdoc "Seeds example Squidie workflow runs"
+  @drain_timeout_ms 5_000
+  @drain_idle_sleep_ms 50
 
   @impl Mix.Task
   def run(_args) do
@@ -18,8 +20,8 @@ defmodule Mix.Tasks.Example.Seed do
 
     run_ids = Enum.map(started_runs, & &1.run_id)
 
-    drain_runtime(run_ids, 12)
-    record_dynamic_work_overlay!(started_runs)
+    drain_runtime(run_ids, drain_deadline())
+    dynamic_work_demo = record_dynamic_work_overlay!(started_runs)
 
     runs =
       Enum.map(run_ids, fn run_id ->
@@ -33,6 +35,9 @@ defmodule Mix.Tasks.Example.Seed do
 
     Current run statuses:
     #{format_runs(runs)}
+
+    Dynamic work overlay demo:
+    #{format_dynamic_work_demo(dynamic_work_demo)}
 
     Open /sonar in the example app to inspect them.
     """)
@@ -74,12 +79,17 @@ defmodule Mix.Tasks.Example.Seed do
       %{run_id: run_id} ->
         with {:ok, run} <- Squidie.inspect_run(run_id),
              {:ok, origin} <- dynamic_origin(run, "load_order"),
-             {:ok, _updated_run} <-
-               Squidie.record_dynamic_work(run_id, dynamic_work_overlay(origin)) do
-          :ok
+             dynamic_work = dynamic_work_overlay(origin),
+             {:ok, _updated_run} <- Squidie.record_dynamic_work(run_id, dynamic_work),
+             {:ok, graph} <- Squidie.inspect_run_graph(run_id),
+             overlay when is_map(overlay) <- dynamic_work_overlay_for(graph, "fraud_review") do
+          %{run_id: run_id, overlay: overlay}
         else
           {:error, reason} ->
             raise "example seed dynamic work overlay failed: #{inspect(reason)}"
+
+          _missing ->
+            raise "example seed dynamic work overlay failed: overlay missing from graph inspection"
         end
 
       nil ->
@@ -108,10 +118,18 @@ defmodule Mix.Tasks.Example.Seed do
         %{
           id: "fraud_review",
           action: "review_risk",
-          metadata: %{queue: "risk"}
+          metadata: %{queue: "risk", owner: "ops"}
         }
-      ]
+      ],
+      metadata: %{
+        note: "seeded overlay for the Squid Sonar dynamic work panel"
+      }
     }
+  end
+
+  defp dynamic_work_overlay_for(graph, dynamic_key) do
+    graph.dynamic_work_overlays
+    |> Enum.find(&(Map.get(&1, :dynamic_key) == dynamic_key))
   end
 
   defp reset_example_state! do
@@ -124,33 +142,33 @@ defmodule Mix.Tasks.Example.Seed do
       """)
   end
 
-  defp drain_runtime(run_ids, 0) do
-    runs = inspect_runs(run_ids)
-
-    if Enum.all?(runs, &settled_status?/1) do
-      :ok
-    else
-      raise "example seed runtime drain exhausted: unsettled runs: #{inspect(runs)}"
-    end
+  defp drain_deadline do
+    System.monotonic_time(:millisecond) + @drain_timeout_ms
   end
 
-  defp drain_runtime(run_ids, attempts_remaining) when attempts_remaining > 0 do
+  defp drain_runtime(run_ids, deadline_ms) do
     runs = inspect_runs(run_ids)
+    unsettled_runs = Enum.reject(runs, &settled_status?/1)
 
-    if Enum.all?(runs, &settled_status?/1) do
-      :ok
-    else
-      case Squidie.execute_next(owner_id: "squid-sonar-example-seed") do
-        {:ok, :none} ->
-          Process.sleep(50)
-          drain_runtime(run_ids, attempts_remaining - 1)
+    cond do
+      unsettled_runs == [] ->
+        :ok
 
-        {:ok, _snapshot} ->
-          drain_runtime(run_ids, attempts_remaining - 1)
+      System.monotonic_time(:millisecond) >= deadline_ms ->
+        raise "example seed runtime drain exhausted:\n#{format_runs(unsettled_runs)}"
 
-        {:error, reason} ->
-          raise "example seed runtime drain failed: #{inspect(reason)}"
-      end
+      true ->
+        case Squidie.execute_next(owner_id: "squid-sonar-example-seed") do
+          {:ok, :none} ->
+            Process.sleep(@drain_idle_sleep_ms)
+            drain_runtime(run_ids, deadline_ms)
+
+          {:ok, _snapshot} ->
+            drain_runtime(run_ids, deadline_ms)
+
+          {:error, reason} ->
+            raise "example seed runtime drain failed: #{inspect(reason)}"
+        end
     end
   end
 
@@ -180,4 +198,13 @@ defmodule Mix.Tasks.Example.Seed do
     do: :retrying
 
   defp display_status(%{status: status}), do: status
+
+  defp format_dynamic_work_demo(%{run_id: run_id, overlay: overlay}) do
+    dynamic_key = Map.get(overlay, :dynamic_key)
+    origin_node_id = Map.get(overlay, :origin_node_id)
+    added_node_ids = Map.get(overlay, :added_node_ids, [])
+    added_edge_ids = Map.get(overlay, :added_edge_ids, [])
+
+    "  * #{dynamic_key} run=#{run_id} origin=#{origin_node_id} nodes=#{inspect(added_node_ids)} edges=#{inspect(added_edge_ids)}"
+  end
 end

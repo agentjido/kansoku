@@ -82,6 +82,30 @@ defmodule SquidSonarExample.JournalRunTest do
            ] = graph.dynamic_work_overlays
   end
 
+  test "example seed creates a dynamic work overlay demo run" do
+    Mix.Task.reenable("example.seed")
+
+    Mix.Tasks.Example.Seed.run([])
+
+    assert {:ok, runs} = Squidie.list_runs()
+
+    assert %{run_id: run_id, dynamic_work: [%{dynamic_key: "fraud_review"}]} =
+             Enum.find(runs, &(&1.trigger == "paused_checkout"))
+
+    assert {:ok, graph} = Squidie.inspect_run_graph(run_id)
+
+    assert [
+             %{
+               dynamic_key: "fraud_review",
+               origin_node_id: "load_order",
+               added_node_ids: ["fraud_review"],
+               added_edge_ids: ["load_order:dynamic:fraud_review"],
+               edge_count: 1,
+               node_count: 1
+             }
+           ] = graph.dynamic_work_overlays
+  end
+
   defp await_status(run_id, expected_status, attempts_remaining \\ 20)
 
   defp await_status(run_id, expected_status, attempts_remaining) when attempts_remaining > 0 do

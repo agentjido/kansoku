@@ -236,6 +236,8 @@ defmodule SquidSonar.Runs.RunDetail do
     Enum.flat_map(overlays, &dynamic_work_overlay/1)
   end
 
+  defp dynamic_work_overlays(_overlays), do: []
+
   defp dynamic_work_overlay(overlay) when is_map(overlay) do
     projected = %DynamicWorkOverlay{
       dynamic_key: string_or_nil(map_value(overlay, :dynamic_key)),
