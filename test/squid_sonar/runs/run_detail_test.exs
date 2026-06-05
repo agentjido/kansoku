@@ -31,7 +31,7 @@ defmodule SquidSonar.Runs.RunDetailTest do
         current_node_id: "capture_payment"
       )
 
-    graph = %{
+    graph_inspection = %{
       graph
       | dynamic_work: [
           %{
@@ -56,7 +56,7 @@ defmodule SquidSonar.Runs.RunDetailTest do
         ]
     }
 
-    detail = RunDetail.from_models(snapshot, explanation, graph)
+    detail = RunDetail.from_models(snapshot, explanation, graph_inspection)
 
     assert [
              %RunDetail.DynamicWorkOverlay{
@@ -73,8 +73,8 @@ defmodule SquidSonar.Runs.RunDetailTest do
              }
            ] = detail.dynamic_work_overlays
 
-    assert detail.dynamic_work == graph.dynamic_work
-    assert detail.graph_inspection.dynamic_work_overlays == graph.dynamic_work_overlays
+    assert detail.dynamic_work == graph_inspection.dynamic_work
+    assert detail.graph_inspection.dynamic_work_overlays == graph_inspection.dynamic_work_overlays
   end
 
   test "normalizes overlay values and filters empty overlay records" do
@@ -97,7 +97,7 @@ defmodule SquidSonar.Runs.RunDetailTest do
         workflow: "Elixir.Example.Checkout"
       )
 
-    graph = %{
+    graph_inspection = %{
       graph
       | dynamic_work_overlays: [
           %{
@@ -118,7 +118,7 @@ defmodule SquidSonar.Runs.RunDetailTest do
         ]
     }
 
-    detail = RunDetail.from_models(snapshot, explanation, graph)
+    detail = RunDetail.from_models(snapshot, explanation, graph_inspection)
 
     assert [
              %RunDetail.DynamicWorkOverlay{

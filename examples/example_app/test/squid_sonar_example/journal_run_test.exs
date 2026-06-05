@@ -89,8 +89,11 @@ defmodule SquidSonarExample.JournalRunTest do
 
     assert {:ok, runs} = Squidie.list_runs()
 
-    assert %{run_id: run_id, dynamic_work: [%{dynamic_key: "fraud_review"}]} =
-             Enum.find(runs, &(&1.trigger == "paused_checkout"))
+    assert %{run_id: run_id} =
+             Enum.find(
+               runs,
+               &(&1.workflow == "Elixir.SquidSonarExample.Workflows.PausedCheckout")
+             )
 
     assert {:ok, graph} = Squidie.inspect_run_graph(run_id)
 
