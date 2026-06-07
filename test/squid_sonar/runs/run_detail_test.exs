@@ -271,4 +271,94 @@ defmodule SquidSonar.Runs.RunDetailTest do
              }
            ] = detail.dynamic_work_overlays
   end
+
+  test "projects deferred continuation evidence from scheduled attempts" do
+    visible_at = ~U[2026-05-15 10:45:00Z]
+    deferred_at = ~U[2026-05-15 10:15:00Z]
+
+    deferred_attempt = %{
+      step: "capture_payment",
+      status: :retry_scheduled,
+      attempt_number: 2,
+      runnable_key: "run-deferred:capture_payment:2",
+      visible_at: visible_at,
+      deferred: %{
+        reason: %{
+          message: :awaiting_provider,
+          target: %{step: :capture_payment, branch: :provider_callback},
+          context: %{decision: :hold, provider_reference: "pi_123"}
+        },
+        deferred_at: deferred_at,
+        from_runnable_key: "run-deferred:capture_payment:1",
+        wakeup: %{visible_at: visible_at}
+      }
+    }
+
+    snapshot =
+      snapshot(:running,
+        run_id: "run-deferred",
+        workflow: "Elixir.Example.Checkout",
+        reason: :deferred_continuation,
+        current_step: "capture_payment",
+        scheduled_attempts: [deferred_attempt],
+        next_visible_at: visible_at
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "run-deferred",
+        workflow: "Elixir.Example.Checkout",
+        reason: :deferred_continuation,
+        step: "capture_payment",
+        next_actions: [:wait_until_attempt_visible],
+        details: %{
+          deferred_attempt_count: 1,
+          next_visible_at: visible_at,
+          deferred: [
+            %{
+              reason: :awaiting_provider,
+              target: %{step: :capture_payment, branch: :provider_callback},
+              context: %{decision: :hold, provider_reference: "pi_123"}
+            }
+          ]
+        }
+      )
+
+    graph =
+      graph_inspection(:running,
+        run_id: "run-deferred",
+        workflow: "Elixir.Example.Checkout",
+        current_node_id: "capture_payment",
+        nodes: [
+          graph_node("capture_payment", :deferred, true)
+        ]
+      )
+
+    detail = RunDetail.from_models(snapshot, explanation, graph)
+
+    assert [
+             %{
+               step: "capture_payment",
+               status: :deferred,
+               runnable_key: "run-deferred:capture_payment:2",
+               reason: :awaiting_provider,
+               target_step: "capture_payment",
+               target_branch: "provider_callback",
+               decision_context: %{decision: :hold, provider_reference: "pi_123"},
+               visible_at: ^visible_at,
+               next_visible_at: ^visible_at,
+               deferred_at: ^deferred_at,
+               from_runnable_key: "run-deferred:capture_payment:1",
+               wakeup: %{visible_at: ^visible_at}
+             }
+           ] = Map.get(detail, :deferred_continuations)
+
+    assert [
+             %{
+               reason: :awaiting_provider,
+               target_step: "capture_payment",
+               target_branch: "provider_callback"
+             }
+           ] = detail.graph_inspection.deferred_continuations
+  end
 end

@@ -22,6 +22,8 @@
   --squid-sonar-warning-muted: #f7f4ec;
   --squid-sonar-success: #2d6a4f;
   --squid-sonar-success-muted: #eef6f1;
+  --squid-sonar-deferred: #2f6f7e;
+  --squid-sonar-deferred-muted: #edf5f7;
   --squid-sonar-waiting: #66616f;
   --squid-sonar-waiting-muted: #f1f2f4;
   --squid-sonar-running: #8061d8;
@@ -90,6 +92,8 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   --squid-sonar-warning-muted: #2a251b;
   --squid-sonar-success: #85b799;
   --squid-sonar-success-muted: #19271f;
+  --squid-sonar-deferred: #8ab7c2;
+  --squid-sonar-deferred-muted: #1a282d;
   --squid-sonar-waiting: #aaa5b4;
   --squid-sonar-waiting-muted: #262a33;
   --squid-sonar-running: #8061d8;
@@ -118,6 +122,8 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
     --squid-sonar-warning-muted: #2a251b;
     --squid-sonar-success: #85b799;
     --squid-sonar-success-muted: #19271f;
+    --squid-sonar-deferred: #8ab7c2;
+    --squid-sonar-deferred-muted: #1a282d;
     --squid-sonar-waiting: #aaa5b4;
     --squid-sonar-waiting-muted: #262a33;
     --squid-sonar-running: #8061d8;
@@ -1531,6 +1537,28 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   width: 6px;
 }
 
+.squid-sonar-workflow-status-icon-deferred {
+  border-color: var(--squid-sonar-deferred);
+}
+
+.squid-sonar-workflow-status-icon-deferred::before,
+.squid-sonar-workflow-status-icon-deferred::after {
+  background: var(--squid-sonar-deferred);
+  content: "";
+  height: 2px;
+  left: 2px;
+  position: absolute;
+  width: 6px;
+}
+
+.squid-sonar-workflow-status-icon-deferred::before {
+  top: 3px;
+}
+
+.squid-sonar-workflow-status-icon-deferred::after {
+  top: 7px;
+}
+
 .squid-sonar-workflow-node-status {
   align-self: flex-start;
   background: var(--squid-sonar-surface-muted);
@@ -1563,6 +1591,12 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   background: var(--squid-sonar-warning-muted);
   border-color: color-mix(in srgb, var(--squid-sonar-warning) 28%, var(--squid-sonar-border));
   color: var(--squid-sonar-warning);
+}
+
+.squid-sonar-workflow-node-deferred .squid-sonar-workflow-node-status {
+  background: var(--squid-sonar-deferred-muted);
+  border-color: color-mix(in srgb, var(--squid-sonar-deferred) 28%, var(--squid-sonar-border));
+  color: var(--squid-sonar-deferred);
 }
 
 .squid-sonar-workflow-node-paused .squid-sonar-workflow-node-status,

@@ -496,6 +496,45 @@ defmodule SquidSonarWeb.CoreComponents do
         </div>
       </section>
 
+      <section
+        :if={@detail.deferred_continuations != []}
+        class="squid-sonar-detail-panel squid-sonar-deferred-continuation-panel"
+      >
+        <h3>Deferred continuations</h3>
+        <p>
+          Deferred wake-up metadata, target continuation, decision context, and safe cancellation and replay guidance.
+        </p>
+        <div class="squid-sonar-recovery-policy-list">
+          <article
+            :for={deferred <- @detail.deferred_continuations}
+            class="squid-sonar-recovery-policy-row"
+          >
+            <strong>{format_step(deferred.step)}</strong>
+            <div class="squid-sonar-recovery-policy-tags">
+              <span :if={deferred.reason}>reason {format_policy_value(deferred.reason)}</span>
+              <span :if={deferred.target_step}>target {format_step(deferred.target_step)}</span>
+              <span :if={deferred.target_branch}>branch {deferred.target_branch}</span>
+              <span :if={deferred.visible_at}>visible {format_time(deferred.visible_at)}</span>
+              <span :if={deferred.next_visible_at}>
+                next wakeup {format_time(deferred.next_visible_at)}
+              </span>
+              <span :if={deferred.deferred_at}>deferred {format_time(deferred.deferred_at)}</span>
+              <span :if={deferred.runnable_key}>runnable {deferred.runnable_key}</span>
+              <span :if={deferred.from_runnable_key}>from {deferred.from_runnable_key}</span>
+              <span :if={not is_nil(deferred.wakeup_emitted?)}>
+                wakeup emitted? {format_value(deferred.wakeup_emitted?)}
+              </span>
+            </div>
+            <div
+              :if={deferred.decision_context != %{}}
+              class="squid-sonar-recovery-policy-tags"
+            >
+              <span>context {format_deferred_context(deferred.decision_context)}</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="squid-sonar-detail-panel">
         <div class="squid-sonar-workflow-panel-heading">
           <h3>Workflow</h3>
@@ -757,6 +796,19 @@ defmodule SquidSonarWeb.CoreComponents do
   defp format_dynamic_overlay_key(%{origin_node_id: origin}) when is_binary(origin), do: origin
   defp format_dynamic_overlay_key(_overlay), do: "dynamic work"
 
+  defp format_deferred_context(context) when is_map(context) do
+    keys =
+      context
+      |> Map.keys()
+      |> Enum.filter(&(is_binary(&1) or is_atom(&1)))
+      |> Enum.map(&format_policy_value/1)
+      |> Enum.sort()
+
+    if keys == [], do: "present", else: Enum.join(keys, ", ")
+  end
+
+  defp format_deferred_context(_context), do: "present"
+
   defp pluralize(1, label), do: "1 #{label}"
   defp pluralize(count, label), do: "#{count} #{label}s"
 
@@ -883,6 +935,7 @@ defmodule SquidSonarWeb.CoreComponents do
   defp format_graph_status(:cancelled), do: "cancelled"
   defp format_graph_status(:waiting), do: "waiting"
   defp format_graph_status(:pending), do: "pending"
+  defp format_graph_status(:deferred), do: "deferred"
   defp format_graph_status(status), do: format_value(status)
 
   defp compensation_recovery(%{recovery: recovery}) when is_map(recovery) do
