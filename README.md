@@ -17,20 +17,22 @@
   </p>
 </div>
 
-SquidSonar is a read-only Phoenix LiveView dashboard for applications that run
-Squidie workflows.
+SquidSonar is an embeddable Phoenix LiveView operator dashboard for
+applications that run Squidie workflows.
 
 Mount it inside a Phoenix host application to inspect recent runs, filter by
 status, search runtime metadata, and open detail pages with the workflow graph,
-diagnosis, attempt counts, history counts, and last error information.
+diagnosis, attempt counts, history counts, and last error information. It also
+exposes Squidie control operations such as cancel, resume, approval, rejection,
+and replay when the host application wires the required operator context.
 
 ## Runtime Boundary
 
 SquidSonar is distributed as an embeddable library, not a standalone service. A
 host Phoenix application owns authentication, authorization, deployment,
 endpoint configuration, and the Squidie runtime. SquidSonar contributes the
-router macro, LiveViews, static assets, and a small read boundary over Squid
-Mesh public APIs.
+router macro, LiveViews, static assets, and a bounded operator surface over
+Squidie public APIs.
 
 SquidSonar interacts with Squidie through:
 
@@ -62,9 +64,9 @@ Phoenix Host Application
 |
 +-- SquidSonar
     +-- router macro
-    +-- read-only LiveViews
+    +-- operator LiveViews
     +-- embedded assets
-    +-- Squidie inspection API client
+    +-- Squidie inspection and control API client
 ```
 
 ## Dashboard Surface
