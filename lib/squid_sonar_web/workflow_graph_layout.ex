@@ -137,9 +137,9 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
 
   defp node_height(node) do
     cond do
-      deadline_node?(node) and recovery_node?(node) -> @deadline_recovery_node_height
+      deadline_node?(node) and evidence_node?(node) -> @deadline_recovery_node_height
       deadline_node?(node) -> @deadline_node_height
-      recovery_node?(node) -> @recovery_node_height
+      evidence_node?(node) -> @recovery_node_height
       true -> @node_height
     end
   end
@@ -158,6 +158,17 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   end
 
   defp recovery_node?(_node), do: false
+
+  defp compensation_node?(%{name: name}) do
+    case to_string(name) do
+      "compensate:" <> _origin -> true
+      _other -> false
+    end
+  end
+
+  defp compensation_node?(_node), do: false
+
+  defp evidence_node?(node), do: recovery_node?(node) or compensation_node?(node)
 
   defp has_callback?(compensation) do
     case map_value(compensation, :callback) do

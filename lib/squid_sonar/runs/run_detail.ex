@@ -77,6 +77,38 @@ defmodule SquidSonar.Runs.RunDetail do
     ]
   end
 
+  defmodule CompensationEvidence do
+    @moduledoc false
+
+    @type t :: %__MODULE__{
+            step: String.t(),
+            compensation_callback: String.t() | nil,
+            policy_status: atom() | String.t() | nil,
+            status: atom() | String.t(),
+            compensation_step: String.t() | nil,
+            failure_reason: String.t() | nil,
+            irreversible?: boolean() | nil,
+            compensatable?: boolean() | nil,
+            replay: atom() | String.t() | nil,
+            recovery: atom() | String.t() | nil
+          }
+
+    @enforce_keys [:step, :status]
+
+    defstruct [
+      :step,
+      :status,
+      :compensation_callback,
+      :policy_status,
+      :compensation_step,
+      :failure_reason,
+      :irreversible?,
+      :compensatable?,
+      :replay,
+      :recovery
+    ]
+  end
+
   defmodule DynamicWorkOverlay do
     @moduledoc false
 
@@ -119,6 +151,7 @@ defmodule SquidSonar.Runs.RunDetail do
           workflow_graph: WorkflowGraph.t(),
           explanation: Diagnostic.t(),
           recovery_policies: [RecoveryPolicy.t()],
+          compensation_evidence: [CompensationEvidence.t()],
           dynamic_work: [map()],
           dynamic_work_overlays: [DynamicWorkOverlay.t()]
         }
@@ -132,6 +165,7 @@ defmodule SquidSonar.Runs.RunDetail do
     :graph_inspection,
     :workflow_graph,
     recovery_policies: [],
+    compensation_evidence: [],
     dynamic_work: [],
     dynamic_work_overlays: [],
     planned_runnables: [],
@@ -144,6 +178,8 @@ defmodule SquidSonar.Runs.RunDetail do
   def from_models(%Snapshot{} = snapshot, %Diagnostic{} = explanation, %GraphInspection{} = graph) do
     graph_inspection = GraphInspection.to_map(graph)
 
+    recovery_policies = recovery_policies(explanation)
+
     %__MODULE__{
       summary: summary(snapshot, explanation, graph),
       payload: snapshot.input,
@@ -155,7 +191,8 @@ defmodule SquidSonar.Runs.RunDetail do
       graph_inspection: graph_inspection,
       workflow_graph: WorkflowGraph.from_models(snapshot, graph),
       explanation: explanation,
-      recovery_policies: recovery_policies(explanation),
+      recovery_policies: recovery_policies,
+      compensation_evidence: compensation_evidence(snapshot, recovery_policies),
       dynamic_work: graph.dynamic_work,
       dynamic_work_overlays: dynamic_work_overlays(graph.dynamic_work_overlays)
     }
@@ -231,6 +268,185 @@ defmodule SquidSonar.Runs.RunDetail do
     do: map_value(compensation, :status)
 
   defp compensation_status(_compensation), do: nil
+
+  defp compensation_evidence(%Snapshot{} = snapshot, recovery_policies) do
+    policies_by_step =
+      recovery_policies
+      |> Enum.map(&compensation_policy_evidence/1)
+      |> Enum.reduce(%{}, fn evidence, evidence_by_step ->
+        Map.update(
+          evidence_by_step,
+          evidence.step,
+          evidence,
+          &merge_compensation_policy(&1, evidence)
+        )
+      end)
+
+    snapshot
+    |> compensation_sources()
+    |> Enum.flat_map(&compensation_attempt_evidence/1)
+    |> Enum.reduce(policies_by_step, fn attempt_evidence, evidence_by_step ->
+      Map.update(
+        evidence_by_step,
+        attempt_evidence.step,
+        attempt_evidence,
+        &merge_compensation_evidence(&1, attempt_evidence)
+      )
+    end)
+    |> Map.values()
+    |> Enum.sort_by(& &1.step)
+  end
+
+  defp compensation_policy_evidence(%RecoveryPolicy{} = policy) do
+    {step, compensation_step} = compensation_step(policy.step)
+
+    %CompensationEvidence{
+      step: step,
+      compensation_callback: policy.compensation_callback,
+      policy_status: policy.compensation_status,
+      status: compensation_policy_status(policy),
+      compensation_step: compensation_step,
+      irreversible?: policy.irreversible?,
+      compensatable?: policy.compensatable?,
+      replay: policy.replay,
+      recovery: policy.recovery
+    }
+  end
+
+  defp compensation_policy_status(%RecoveryPolicy{compensatable?: false}), do: :non_compensatable
+  defp compensation_policy_status(%RecoveryPolicy{irreversible?: true}), do: :irreversible
+
+  defp compensation_policy_status(%RecoveryPolicy{} = policy) do
+    cond do
+      policy.compensation_callback -> :eligible
+      policy.recovery -> policy.recovery
+      true -> :unknown
+    end
+  end
+
+  defp compensation_attempt_evidence(attempt) when is_map(attempt) do
+    step = map_value(attempt, :step)
+
+    case string_or_nil(step) do
+      "compensate:" <> origin_step ->
+        [
+          %CompensationEvidence{
+            step: origin_step,
+            status: compensation_source_status(attempt),
+            compensation_step: "compensate:#{origin_step}",
+            failure_reason: error_reason(map_value(attempt, :error))
+          }
+        ]
+
+      _other ->
+        []
+    end
+  end
+
+  defp compensation_attempt_evidence(_attempt), do: []
+
+  defp compensation_sources(%Snapshot{} = snapshot) do
+    []
+    |> source_entries(:pending_dispatch, snapshot.pending_dispatches)
+    |> source_entries(:pending_result, snapshot.pending_results)
+    |> source_entries(:visible_attempt, snapshot.visible_attempts)
+    |> source_entries(:scheduled_attempt, snapshot.scheduled_attempts)
+    |> source_entries(:expired_claim, snapshot.expired_claims)
+    |> source_entries(:attempt, snapshot.attempts)
+  end
+
+  defp source_entries(entries, source, values) do
+    source_values =
+      values
+      |> List.wrap()
+      |> Enum.flat_map(fn
+        value when is_map(value) -> [Map.put(value, :sonar_source, source)]
+        _malformed -> []
+      end)
+
+    entries ++ source_values
+  end
+
+  defp compensation_source_status(source) do
+    source
+    |> map_value(:sonar_source)
+    |> compensation_source_status(map_value(source, :status))
+  end
+
+  defp compensation_source_status(:pending_dispatch, _status), do: :pending_dispatch
+  defp compensation_source_status(:pending_result, :completed), do: :result_pending_apply
+  defp compensation_source_status(:pending_result, "completed"), do: :result_pending_apply
+  defp compensation_source_status(:scheduled_attempt, _status), do: :scheduled
+  defp compensation_source_status(:expired_claim, _status), do: :expired_claim
+  defp compensation_source_status(_source, :completed), do: :succeeded
+  defp compensation_source_status(_source, "completed"), do: :succeeded
+  defp compensation_source_status(_source, :failed), do: :failed
+  defp compensation_source_status(_source, "failed"), do: :failed
+  defp compensation_source_status(_source, :skipped), do: :skipped
+  defp compensation_source_status(_source, "skipped"), do: :skipped
+
+  defp compensation_source_status(_source, status) when status in [:claimed, :running],
+    do: :started
+
+  defp compensation_source_status(_source, status) when status in ["claimed", "running"],
+    do: :started
+
+  defp compensation_source_status(_source, :retry_scheduled), do: :retrying
+  defp compensation_source_status(_source, "retry_scheduled"), do: :retrying
+
+  defp compensation_source_status(_source, status) when is_atom(status) or is_binary(status),
+    do: status
+
+  defp compensation_source_status(_source, _status), do: :unknown
+
+  defp merge_compensation_evidence(
+         %CompensationEvidence{} = policy,
+         %CompensationEvidence{} = attempt
+       ) do
+    %CompensationEvidence{
+      policy
+      | status: attempt.status,
+        compensation_step: attempt.compensation_step,
+        failure_reason: attempt.failure_reason
+    }
+  end
+
+  defp merge_compensation_policy(
+         %CompensationEvidence{} = existing,
+         %CompensationEvidence{} = incoming
+       ) do
+    %CompensationEvidence{
+      existing
+      | compensation_callback: existing.compensation_callback || incoming.compensation_callback,
+        policy_status: existing.policy_status || incoming.policy_status,
+        status: merged_policy_status(existing.status, incoming.status),
+        compensation_step: existing.compensation_step || incoming.compensation_step,
+        irreversible?: existing.irreversible? || incoming.irreversible?,
+        compensatable?: existing.compensatable? || incoming.compensatable?,
+        replay: existing.replay || incoming.replay,
+        recovery: existing.recovery || incoming.recovery
+    }
+  end
+
+  defp merged_policy_status(:unknown, status), do: status
+  defp merged_policy_status(status, _incoming), do: status
+
+  defp compensation_step("compensate:" <> origin_step = compensation_step),
+    do: {origin_step, compensation_step}
+
+  defp compensation_step(step), do: {step, nil}
+
+  defp error_reason(nil), do: nil
+
+  defp error_reason(error) when is_map(error) do
+    case map_value(error, :code) do
+      code when is_binary(code) -> code
+      _other -> "present"
+    end
+  end
+
+  defp error_reason(error) when is_binary(error), do: "present"
+  defp error_reason(_error), do: "present"
 
   defp dynamic_work_overlays(overlays) when is_list(overlays) do
     Enum.flat_map(overlays, &dynamic_work_overlay/1)

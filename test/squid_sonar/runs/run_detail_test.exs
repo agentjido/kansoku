@@ -5,6 +5,141 @@ defmodule SquidSonar.Runs.RunDetailTest do
 
   alias SquidSonar.Runs.RunDetail
 
+  test "projects compensation evidence from policy and compensation attempts" do
+    recovery = compensation_recovery("ReleaseInventory", status: :available)
+
+    snapshot =
+      snapshot(:failed,
+        run_id: "run-compensation-detail",
+        workflow: "Elixir.Example.SagaCheckout",
+        reason: :terminal,
+        attempts: [
+          attempt("reserve_inventory", :completed, 1, nil, recovery: recovery),
+          attempt("fail_payment", :failed, 1, %{"message" => "gateway unavailable"}),
+          attempt("compensate:reserve_inventory", :failed, 1, %{
+            "message" => "release failed for token tok_secret",
+            "customer" => "cust_secret"
+          })
+        ]
+      )
+
+    explanation =
+      diagnostic(:failed,
+        run_id: "run-compensation-detail",
+        workflow: "Elixir.Example.SagaCheckout",
+        reason: :terminal,
+        evidence:
+          recovery_policy_evidence(%{
+            reserve_inventory: recovery,
+            fail_payment: %{
+              irreversible?: true,
+              compensatable?: false,
+              recovery: :manual_intervention
+            }
+          })
+      )
+
+    graph =
+      graph_inspection(:failed,
+        run_id: "run-compensation-detail",
+        workflow: "Elixir.Example.SagaCheckout",
+        nodes: [
+          graph_node("reserve_inventory", :completed, false, recovery: recovery),
+          graph_node("fail_payment", :failed, true),
+          graph_node("compensate:reserve_inventory", :failed, false)
+        ]
+      )
+
+    detail = RunDetail.from_models(snapshot, explanation, graph)
+
+    assert [
+             %RunDetail.CompensationEvidence{
+               step: "fail_payment",
+               status: :non_compensatable,
+               irreversible?: true,
+               compensatable?: false,
+               recovery: :manual_intervention
+             },
+             %RunDetail.CompensationEvidence{
+               step: "reserve_inventory",
+               compensation_callback: "ReleaseInventory",
+               policy_status: :available,
+               status: :failed,
+               compensation_step: "compensate:reserve_inventory",
+               failure_reason: "present"
+             }
+           ] = detail.compensation_evidence
+  end
+
+  test "folds pending compensation runnable sources into the origin step" do
+    recovery = compensation_recovery("ReleaseInventory")
+
+    snapshot =
+      snapshot(:running,
+        run_id: "run-compensation-pending",
+        workflow: "Elixir.Example.SagaCheckout",
+        reason: :attempt_scheduled_for_later,
+        pending_dispatches: [
+          %{
+            step: "compensate:reserve_inventory",
+            recovery: %{
+              "irreversible?" => false,
+              "compensatable?" => false,
+              "replay" => "manual_review_required",
+              "recovery" => "manual_intervention"
+            }
+          }
+        ],
+        scheduled_attempts: [
+          attempt("compensate:reserve_inventory", :retry_scheduled, 1, nil)
+        ],
+        attempts: [
+          attempt("reserve_inventory", :completed, 1, nil, recovery: recovery)
+        ]
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "run-compensation-pending",
+        workflow: "Elixir.Example.SagaCheckout",
+        reason: :attempt_scheduled_for_later,
+        evidence:
+          recovery_policy_evidence(%{
+            "compensate:reserve_inventory" => %{
+              "irreversible?" => false,
+              "compensatable?" => false,
+              "replay" => "manual_review_required",
+              "recovery" => "manual_intervention"
+            },
+            reserve_inventory: recovery
+          })
+      )
+
+    graph =
+      graph_inspection(:running,
+        run_id: "run-compensation-pending",
+        workflow: "Elixir.Example.SagaCheckout",
+        nodes: [
+          graph_node("reserve_inventory", :completed, false, recovery: recovery),
+          graph_node("compensate:reserve_inventory", :retrying, true)
+        ]
+      )
+
+    detail = RunDetail.from_models(snapshot, explanation, graph)
+
+    assert [
+             %RunDetail.CompensationEvidence{
+               step: "reserve_inventory",
+               compensation_callback: "ReleaseInventory",
+               policy_status: :available,
+               status: :scheduled,
+               compensation_step: "compensate:reserve_inventory",
+               replay: "manual_review_required",
+               recovery: "manual_intervention"
+             }
+           ] = detail.compensation_evidence
+  end
+
   test "projects dynamic work overlays from graph inspection data" do
     recorded_at = ~U[2026-05-15 10:17:00Z]
 
