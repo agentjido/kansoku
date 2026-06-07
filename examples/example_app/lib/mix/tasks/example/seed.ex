@@ -6,7 +6,7 @@ defmodule Mix.Tasks.Example.Seed do
   use Mix.Task
 
   @shortdoc "Seeds example Squidie workflow runs"
-  @drain_timeout_ms 5_000
+  @drain_timeout_ms 15_000
   @drain_idle_sleep_ms 50
 
   @impl Mix.Task
