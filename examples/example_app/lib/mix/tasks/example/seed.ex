@@ -22,6 +22,7 @@ defmodule Mix.Tasks.Example.Seed do
 
     drain_runtime(run_ids, drain_deadline())
     dynamic_work_demo = record_dynamic_work_overlay!(started_runs)
+    compensation_demo = compensation_evidence_demo!(started_runs)
 
     runs =
       Enum.map(run_ids, fn run_id ->
@@ -38,6 +39,9 @@ defmodule Mix.Tasks.Example.Seed do
 
     Dynamic work overlay demo:
     #{format_dynamic_work_demo(dynamic_work_demo)}
+
+    Compensation evidence demo:
+    #{format_compensation_demo(compensation_demo)}
 
     Open /sonar in the example app to inspect them.
     """)
@@ -96,6 +100,37 @@ defmodule Mix.Tasks.Example.Seed do
         raise "example seed dynamic work overlay failed: paused checkout run missing"
     end
   end
+
+  defp compensation_evidence_demo!(started_runs) do
+    case Enum.find(started_runs, &(&1.trigger == :saga_checkout)) do
+      %{run_id: run_id} ->
+        with {:ok, graph} <- Squidie.inspect_run_graph(run_id),
+             [_node | _rest] = nodes <- compensation_nodes(graph) do
+          %{run_id: run_id, nodes: nodes}
+        else
+          {:error, reason} ->
+            raise "example seed compensation evidence failed: #{inspect(reason)}"
+
+          [] ->
+            raise "example seed compensation evidence failed: compensation nodes missing"
+        end
+
+      nil ->
+        raise "example seed compensation evidence failed: saga checkout run missing"
+    end
+  end
+
+  defp compensation_nodes(graph) do
+    graph.nodes
+    |> Enum.filter(fn node ->
+      node
+      |> Map.get(:id)
+      |> compensation_node_id?()
+    end)
+  end
+
+  defp compensation_node_id?("compensate:" <> _origin), do: true
+  defp compensation_node_id?(_id), do: false
 
   defp dynamic_origin(run, step) do
     run.attempts
@@ -206,5 +241,15 @@ defmodule Mix.Tasks.Example.Seed do
     added_edge_ids = Map.get(overlay, :added_edge_ids, [])
 
     "  * #{dynamic_key} run=#{run_id} origin=#{origin_node_id} nodes=#{inspect(added_node_ids)} edges=#{inspect(added_edge_ids)}"
+  end
+
+  defp format_compensation_demo(%{run_id: run_id, nodes: nodes}) do
+    nodes =
+      nodes
+      |> Enum.map_join(", ", fn node ->
+        "#{Map.get(node, :id)} status=#{inspect(Map.get(node, :status))}"
+      end)
+
+    "  * run=#{run_id} nodes=#{nodes}"
   end
 end

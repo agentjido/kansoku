@@ -429,24 +429,33 @@ defmodule SquidSonarWeb.CoreComponents do
       <% end %>
 
       <section
-        :if={@detail.recovery_policies != []}
+        :if={@detail.compensation_evidence != []}
         class="squid-sonar-detail-panel squid-sonar-recovery-policy-panel"
       >
-        <h3>Recovery policy</h3>
+        <h3>Compensation evidence</h3>
         <p>
-          Declared rollback metadata only; SquidSonar does not execute rollback from this summary.
+          Read-only rollback and undo evidence; SquidSonar does not execute compensation from this summary.
         </p>
         <div class="squid-sonar-recovery-policy-list">
-          <div :for={policy <- @detail.recovery_policies} class="squid-sonar-recovery-policy-row">
-            <strong>{policy.step}</strong>
+          <div
+            :for={evidence <- @detail.compensation_evidence}
+            class="squid-sonar-recovery-policy-row"
+          >
+            <strong>{evidence.step}</strong>
             <div class="squid-sonar-recovery-policy-tags">
-              <span :if={policy.compensation_callback}>
-                Rollback {format_policy_value(policy.compensation_status)} via {policy.compensation_callback}
+              <span>{compensation_status_label(evidence.status)}</span>
+              <span :if={evidence.compensation_callback}>
+                via {evidence.compensation_callback}
               </span>
-              <span :if={policy.irreversible? == true}>irreversible</span>
-              <span :if={policy.compensatable? == false}>non-compensatable</span>
-              <span :if={policy.replay}>replay {format_policy_value(policy.replay)}</span>
-              <span :if={policy.recovery}>recovery {format_policy_value(policy.recovery)}</span>
+              <span :if={evidence.policy_status}>
+                policy {format_policy_value(evidence.policy_status)}
+              </span>
+              <span :if={evidence.compensation_step}>{evidence.compensation_step}</span>
+              <span :if={evidence.failure_reason}>reason {evidence.failure_reason}</span>
+              <span :if={evidence.irreversible? == true}>irreversible</span>
+              <span :if={evidence.compensatable? == false}>non-compensatable</span>
+              <span :if={evidence.replay}>replay {format_policy_value(evidence.replay)}</span>
+              <span :if={evidence.recovery}>recovery {format_policy_value(evidence.recovery)}</span>
             </div>
           </div>
         </div>
@@ -609,6 +618,7 @@ defmodule SquidSonarWeb.CoreComponents do
                     "squid-sonar-workflow-node",
                     "squid-sonar-workflow-node-#{item.node.status}",
                     item.node.dynamic? && "squid-sonar-workflow-node-dynamic",
+                    compensation_node?(item.node) && "squid-sonar-workflow-node-compensation",
                     item.node.current? && "squid-sonar-workflow-node-current",
                     item.node.terminal? && "squid-sonar-workflow-node-terminal"
                   ]}
@@ -634,6 +644,18 @@ defmodule SquidSonarWeb.CoreComponents do
                       <div class="squid-sonar-workflow-node-recovery-meta">
                         <strong>{recovery.callback}</strong>
                         <em>{recovery.status}</em>
+                      </div>
+                    </div>
+                  <% end %>
+                  <%= if compensation = compensation_node(item.node) do %>
+                    <div
+                      class="squid-sonar-workflow-node-recovery-panel"
+                      title={compensation_status_label(compensation.status)}
+                    >
+                      <span class="squid-sonar-workflow-node-recovery-label">Compensation</span>
+                      <div class="squid-sonar-workflow-node-recovery-meta">
+                        <strong>{compensation.origin}</strong>
+                        <em>{compensation_status_label(compensation.status)}</em>
                       </div>
                     </div>
                   <% end %>
@@ -720,6 +742,16 @@ defmodule SquidSonarWeb.CoreComponents do
     |> format_value()
     |> String.replace("_", " ")
   end
+
+  defp compensation_status_label(:eligible), do: "compensation eligible"
+  defp compensation_status_label(:succeeded), do: "compensation succeeded"
+  defp compensation_status_label(:failed), do: "compensation failed"
+  defp compensation_status_label(:skipped), do: "compensation skipped"
+  defp compensation_status_label(:started), do: "compensation started"
+  defp compensation_status_label(:retrying), do: "compensation retrying"
+  defp compensation_status_label(:irreversible), do: "irreversible"
+  defp compensation_status_label(:non_compensatable), do: "non-compensatable"
+  defp compensation_status_label(status), do: format_policy_value(status)
 
   defp format_dynamic_overlay_key(%{dynamic_key: key}) when is_binary(key), do: key
   defp format_dynamic_overlay_key(%{origin_node_id: origin}) when is_binary(origin), do: origin
@@ -817,7 +849,7 @@ defmodule SquidSonarWeb.CoreComponents do
   defp last_error(nil), do: "None"
 
   defp last_error(error) when is_map(error) do
-    case Map.take(error, [:code, :message, "code", "message"]) do
+    case Map.take(error, [:code, "code"]) do
       empty when empty == %{} -> "Present"
       safe_error -> inspect(safe_error)
     end
@@ -870,6 +902,26 @@ defmodule SquidSonarWeb.CoreComponents do
   end
 
   defp compensation_recovery(_node), do: nil
+
+  defp compensation_node(%{name: name, status: status}) do
+    case format_value(name) do
+      "compensate:" <> origin ->
+        %{origin: origin, status: compensation_graph_status(status)}
+
+      _other ->
+        nil
+    end
+  end
+
+  defp compensation_node(_node), do: nil
+
+  defp compensation_node?(node), do: not is_nil(compensation_node(node))
+
+  defp compensation_graph_status(:completed), do: :succeeded
+  defp compensation_graph_status(:failed), do: :failed
+  defp compensation_graph_status(:skipped), do: :skipped
+  defp compensation_graph_status(status) when status in [:running, :claimed], do: :started
+  defp compensation_graph_status(status), do: status
 
   defp format_recovery_callback(callback) do
     callback

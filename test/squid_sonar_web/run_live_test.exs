@@ -129,7 +129,9 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert html =~ "overdue"
     assert html =~ "operator_action"
     assert html =~ "2026-05-15T10:15:00Z"
-    assert html =~ "Gateway unavailable"
+    assert html =~ "Last error"
+    assert html =~ "Present"
+    refute html =~ "Gateway unavailable"
     assert html =~ "wait_for_worker_claim"
     assert html =~ "apply_host_escalation_policy"
     assert html =~ "squid-sonar-workflow-graph"
@@ -866,8 +868,8 @@ defmodule SquidSonarWeb.RunLiveTest do
       |> RunLive.render()
       |> rendered_to_string()
 
-    assert html =~ "Recovery policy"
-    assert html =~ "Declared rollback metadata"
+    assert html =~ "Compensation evidence"
+    assert html =~ "Read-only rollback and undo evidence"
     assert html =~ "reserve_inventory"
     assert html =~ "ReleaseInventory"
     assert html =~ "available"
@@ -876,6 +878,94 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert html =~ "manual review required"
     assert html =~ "manual intervention"
     refute html =~ "tok_secret"
+  end
+
+  test "renders compensation failure evidence near the graph and detail panels" do
+    recovery = compensation_recovery("ReleaseInventory")
+
+    graph =
+      graph_inspection(:failed,
+        run_id: "run-compensation-evidence",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_node_id: "compensate:reserve_inventory",
+        nodes: [
+          graph_node("reserve_inventory", :completed, false, recovery: recovery),
+          graph_node("fail_payment", :failed, false),
+          graph_node("compensate:reserve_inventory", :failed, true)
+        ],
+        edges: [
+          graph_edge("reserve_inventory", "fail_payment", :ok),
+          graph_edge("fail_payment", "compensate:reserve_inventory", :error,
+            recovery: :compensation
+          )
+        ]
+      )
+
+    snapshot =
+      snapshot(:failed,
+        run_id: "run-compensation-evidence",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_step: "compensate:reserve_inventory",
+        reason: :terminal,
+        attempts: [
+          attempt("reserve_inventory", :completed, 1, nil, recovery: recovery),
+          attempt("fail_payment", :failed, 1, %{"message" => "gateway unavailable"}),
+          attempt("compensate:reserve_inventory", :failed, 1, %{
+            "message" => "release failed for token tok_secret",
+            "customer" => "cust_secret"
+          })
+        ]
+      )
+
+    explanation =
+      diagnostic(:failed,
+        run_id: "run-compensation-evidence",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        reason: :terminal,
+        step: "compensate:reserve_inventory",
+        next_actions: [:inspect_compensation_failure, :manual_intervention],
+        evidence:
+          recovery_policy_evidence(%{
+            reserve_inventory: recovery,
+            fail_payment: %{
+              irreversible?: true,
+              compensatable?: false,
+              recovery: :manual_intervention
+            }
+          })
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-compensation-evidence"},
+        "/sonar/runs/run-compensation-evidence",
+        mounted_socket
+      )
+
+    html =
+      loaded_socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Compensation evidence"
+    assert html =~ "reserve_inventory"
+    assert html =~ "ReleaseInventory"
+    assert html =~ "compensation failed"
+    assert html =~ "reason present"
+    assert html =~ "fail_payment"
+    assert html =~ "irreversible"
+    assert html =~ "non-compensatable"
+    assert html =~ "inspect_compensation_failure"
+    assert html =~ "squid-sonar-workflow-node-compensation"
+    refute html =~ "gateway unavailable"
+    refute html =~ "tok_secret"
+    refute html =~ "cust_secret"
   end
 
   test "does not render an empty recovery policy section" do
@@ -910,8 +1000,8 @@ defmodule SquidSonarWeb.RunLiveTest do
       |> RunLive.render()
       |> rendered_to_string()
 
-    refute html =~ "Recovery policy"
-    refute html =~ "Declared rollback metadata"
+    refute html =~ "Compensation evidence"
+    refute html =~ "Read-only rollback and undo evidence"
   end
 
   test "renders load errors without leaking internal reason details" do

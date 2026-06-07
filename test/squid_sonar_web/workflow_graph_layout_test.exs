@@ -44,6 +44,23 @@ defmodule SquidSonarWeb.WorkflowGraphLayoutTest do
     assert [%{height: 112}] = layout.nodes
   end
 
+  test "uses the computed height for compensation runnable nodes" do
+    layout =
+      WorkflowGraphLayout.build(%WorkflowGraph{
+        nodes: [
+          %WorkflowGraph.Node{
+            name: "compensate:reserve_inventory",
+            label: "compensate:reserve_inventory",
+            status: :failed
+          }
+        ],
+        edges: []
+      })
+
+    assert [%{height: 112}] = layout.nodes
+    assert layout.height == 152
+  end
+
   test "uses enough height for nodes with deadline and compensation evidence" do
     layout =
       WorkflowGraphLayout.build(%WorkflowGraph{
