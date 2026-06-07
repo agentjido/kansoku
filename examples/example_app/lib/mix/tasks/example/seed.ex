@@ -23,6 +23,7 @@ defmodule Mix.Tasks.Example.Seed do
     drain_runtime(run_ids, drain_deadline())
     dynamic_work_demo = record_dynamic_work_overlay!(started_runs)
     compensation_demo = compensation_evidence_demo!(started_runs)
+    deferred_demo = deferred_continuation_demo!(started_runs)
 
     runs =
       Enum.map(run_ids, fn run_id ->
@@ -43,6 +44,9 @@ defmodule Mix.Tasks.Example.Seed do
     Compensation evidence demo:
     #{format_compensation_demo(compensation_demo)}
 
+    Deferred continuation demo:
+    #{format_deferred_demo(deferred_demo)}
+
     Open /sonar in the example app to inspect them.
     """)
   end
@@ -59,6 +63,8 @@ defmodule Mix.Tasks.Example.Seed do
        %{order_id: "order-saga-#{unique}", customer_id: "cust_demo"}},
       {SquidSonarExample.Workflows.RetryingCheckout, :retrying_checkout,
        %{order_id: "order-retrying-#{unique}", customer_id: "cust_demo"}},
+      {SquidSonarExample.Workflows.DeferredCheckout, :deferred_checkout,
+       %{order_id: "order-deferred-#{unique}", customer_id: "cust_demo"}},
       {SquidSonarExample.Workflows.PausedCheckout, :paused_checkout,
        %{order_id: "order-paused-#{unique}", customer_id: "cust_demo"}},
       {SquidSonarExample.Workflows.ManualReviewCheckout, :manual_review_checkout,
@@ -120,6 +126,31 @@ defmodule Mix.Tasks.Example.Seed do
     end
   end
 
+  defp deferred_continuation_demo!(started_runs) do
+    case Enum.find(started_runs, &(&1.trigger == :deferred_checkout)) do
+      %{run_id: run_id} ->
+        with {:ok, run} <- Squidie.inspect_run(run_id),
+             %{reason: :deferred_continuation} <- run,
+             [attempt | _rest] <- deferred_attempts(run),
+             {:ok, graph} <- Squidie.inspect_run_graph(run_id),
+             [_node | _rest] = nodes <- deferred_nodes(graph) do
+          %{run_id: run_id, attempt: attempt, nodes: nodes}
+        else
+          {:error, reason} ->
+            raise "example seed deferred continuation failed: #{inspect(reason)}"
+
+          %{reason: reason} ->
+            raise "example seed deferred continuation failed: expected deferred run, got #{inspect(reason)}"
+
+          [] ->
+            raise "example seed deferred continuation failed: deferred attempts or nodes missing"
+        end
+
+      nil ->
+        raise "example seed deferred continuation failed: deferred checkout run missing"
+    end
+  end
+
   defp compensation_nodes(graph) do
     graph.nodes
     |> Enum.filter(fn node ->
@@ -131,6 +162,20 @@ defmodule Mix.Tasks.Example.Seed do
 
   defp compensation_node_id?("compensate:" <> _origin), do: true
   defp compensation_node_id?(_id), do: false
+
+  defp deferred_attempts(run) do
+    run.scheduled_attempts
+    |> Enum.filter(fn attempt ->
+      attempt
+      |> Map.get(:deferred)
+      |> is_map()
+    end)
+  end
+
+  defp deferred_nodes(graph) do
+    graph.nodes
+    |> Enum.filter(&(Map.get(&1, :status) == :deferred))
+  end
 
   defp dynamic_origin(run, step) do
     run.attempts
@@ -215,6 +260,7 @@ defmodule Mix.Tasks.Example.Seed do
   end
 
   defp settled_status?(%{status: :running, reason: :attempt_scheduled_for_later}), do: true
+  defp settled_status?(%{status: :running, reason: :deferred_continuation}), do: true
 
   defp settled_status?(%{status: status})
        when status in [:completed, :failed, :retrying, :paused],
@@ -231,6 +277,9 @@ defmodule Mix.Tasks.Example.Seed do
 
   defp display_status(%{status: :running, reason: :attempt_scheduled_for_later}),
     do: :retrying
+
+  defp display_status(%{status: :running, reason: :deferred_continuation}),
+    do: :deferred
 
   defp display_status(%{status: status}), do: status
 
@@ -251,5 +300,16 @@ defmodule Mix.Tasks.Example.Seed do
       end)
 
     "  * run=#{run_id} nodes=#{nodes}"
+  end
+
+  defp format_deferred_demo(%{run_id: run_id, attempt: attempt, nodes: nodes}) do
+    node_ids =
+      nodes
+      |> Enum.map_join(", ", &Map.get(&1, :id))
+
+    deferred = Map.get(attempt, :deferred, %{})
+    reason = deferred |> Map.get(:reason, %{}) |> Map.get(:message)
+
+    "  * run=#{run_id} step=#{Map.get(attempt, :step)} reason=#{inspect(reason)} visible_at=#{inspect(Map.get(attempt, :visible_at))} nodes=#{node_ids}"
   end
 end

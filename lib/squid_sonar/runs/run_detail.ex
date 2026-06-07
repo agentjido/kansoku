@@ -139,6 +139,44 @@ defmodule SquidSonar.Runs.RunDetail do
     ]
   end
 
+  defmodule DeferredContinuation do
+    @moduledoc false
+
+    @type t :: %__MODULE__{
+            step: String.t(),
+            status: :deferred,
+            runnable_key: String.t() | nil,
+            reason: atom() | String.t() | nil,
+            target_step: String.t() | nil,
+            target_branch: String.t() | nil,
+            decision_context: map(),
+            visible_at: DateTime.t() | NaiveDateTime.t() | String.t() | nil,
+            next_visible_at: DateTime.t() | NaiveDateTime.t() | String.t() | nil,
+            deferred_at: DateTime.t() | NaiveDateTime.t() | String.t() | nil,
+            from_runnable_key: String.t() | nil,
+            wakeup: map() | nil,
+            wakeup_emitted?: boolean() | nil
+          }
+
+    @enforce_keys [:step, :status]
+
+    defstruct [
+      :step,
+      :status,
+      :runnable_key,
+      :reason,
+      :target_step,
+      :target_branch,
+      :visible_at,
+      :next_visible_at,
+      :deferred_at,
+      :from_runnable_key,
+      :wakeup,
+      :wakeup_emitted?,
+      decision_context: %{}
+    ]
+  end
+
   @type t :: %__MODULE__{
           summary: Summary.t(),
           payload: map() | nil,
@@ -153,7 +191,8 @@ defmodule SquidSonar.Runs.RunDetail do
           recovery_policies: [RecoveryPolicy.t()],
           compensation_evidence: [CompensationEvidence.t()],
           dynamic_work: [map()],
-          dynamic_work_overlays: [DynamicWorkOverlay.t()]
+          dynamic_work_overlays: [DynamicWorkOverlay.t()],
+          deferred_continuations: [DeferredContinuation.t()]
         }
 
   defstruct [
@@ -168,6 +207,7 @@ defmodule SquidSonar.Runs.RunDetail do
     compensation_evidence: [],
     dynamic_work: [],
     dynamic_work_overlays: [],
+    deferred_continuations: [],
     planned_runnables: [],
     attempts: [],
     anomalies: []
@@ -176,9 +216,13 @@ defmodule SquidSonar.Runs.RunDetail do
   @doc false
   @spec from_models(Snapshot.t(), Diagnostic.t(), GraphInspection.t()) :: t()
   def from_models(%Snapshot{} = snapshot, %Diagnostic{} = explanation, %GraphInspection{} = graph) do
-    graph_inspection = GraphInspection.to_map(graph)
-
     recovery_policies = recovery_policies(explanation)
+    deferred_continuations = deferred_continuations(snapshot, explanation)
+
+    graph_inspection =
+      graph
+      |> GraphInspection.to_map()
+      |> put_deferred_continuations(deferred_continuations)
 
     %__MODULE__{
       summary: summary(snapshot, explanation, graph),
@@ -194,7 +238,8 @@ defmodule SquidSonar.Runs.RunDetail do
       recovery_policies: recovery_policies,
       compensation_evidence: compensation_evidence(snapshot, recovery_policies),
       dynamic_work: graph.dynamic_work,
-      dynamic_work_overlays: dynamic_work_overlays(graph.dynamic_work_overlays)
+      dynamic_work_overlays: dynamic_work_overlays(graph.dynamic_work_overlays),
+      deferred_continuations: deferred_continuations
     }
   end
 
@@ -477,6 +522,114 @@ defmodule SquidSonar.Runs.RunDetail do
       overlay.added_edge_ids != [] or not is_nil(overlay.recorded_at)
   end
 
+  defp deferred_continuations(%Snapshot{} = snapshot, %Diagnostic{} = explanation) do
+    explanation_deferred = explanation_deferred(explanation)
+
+    snapshot.scheduled_attempts
+    |> List.wrap()
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {attempt, index} ->
+      deferred_continuation(attempt, snapshot, Enum.at(explanation_deferred, index))
+    end)
+    |> Enum.sort_by(&{&1.step, &1.runnable_key || ""})
+  end
+
+  defp deferred_continuation(attempt, %Snapshot{} = snapshot, explanation_deferred)
+       when is_map(attempt) do
+    deferred = map_value(attempt, :deferred)
+
+    if is_map(deferred) do
+      explanation_deferred = if is_map(explanation_deferred), do: explanation_deferred, else: %{}
+      reason_metadata = map_value(deferred, :reason)
+
+      target =
+        first_map([
+          map_value(deferred, :target),
+          map_value(reason_metadata, :target),
+          map_value(explanation_deferred, :target)
+        ])
+
+      step = string_or_nil(map_value(attempt, :step) || map_value(target, :step))
+
+      if is_nil(step) do
+        []
+      else
+        [
+          %DeferredContinuation{
+            step: step,
+            status: :deferred,
+            runnable_key: string_or_nil(map_value(attempt, :runnable_key)),
+            reason: deferred_reason(reason_metadata || map_value(explanation_deferred, :reason)),
+            target_step: string_or_nil(map_value(target, :step) || step),
+            target_branch: string_or_nil(map_value(target, :branch)),
+            decision_context:
+              first_map([
+                map_value(deferred, :context),
+                map_value(deferred, :decision_context),
+                map_value(reason_metadata, :context),
+                map_value(reason_metadata, :decision_context),
+                map_value(explanation_deferred, :context),
+                map_value(explanation_deferred, :decision_context)
+              ]),
+            visible_at: map_value(attempt, :visible_at),
+            next_visible_at: snapshot.next_visible_at,
+            deferred_at: map_value(deferred, :deferred_at),
+            from_runnable_key: string_or_nil(map_value(deferred, :from_runnable_key)),
+            wakeup: first_map([map_value(deferred, :wakeup), wakeup_metadata(attempt)]),
+            wakeup_emitted?: map_value(attempt, :wakeup_emitted?)
+          }
+        ]
+      end
+    else
+      []
+    end
+  end
+
+  defp deferred_continuation(_attempt, _snapshot, _explanation_deferred), do: []
+
+  defp explanation_deferred(%Diagnostic{details: details}) when is_map(details) do
+    details
+    |> map_value(:deferred)
+    |> List.wrap()
+    |> Enum.filter(&is_map/1)
+  end
+
+  defp explanation_deferred(_explanation), do: []
+
+  defp deferred_reason(reason) when is_map(reason) do
+    case map_value(reason, :message) do
+      value when is_binary(value) or is_atom(value) -> value
+      _missing -> map_value(reason, :type) || :structured_reason
+    end
+  end
+
+  defp deferred_reason(reason) when is_binary(reason) or is_atom(reason), do: reason
+  defp deferred_reason(nil), do: nil
+  defp deferred_reason(_reason), do: :present
+
+  defp wakeup_metadata(attempt) when is_map(attempt) do
+    attempt
+    |> Map.take([:visible_at, :wakeup_emitted?])
+    |> compact_map()
+  end
+
+  defp first_map(values) do
+    Enum.find_value(values, %{}, fn
+      value when is_map(value) and map_size(value) > 0 -> value
+      _other -> nil
+    end)
+  end
+
+  defp compact_map(map) when is_map(map) do
+    Map.reject(map, fn {_key, value} -> is_nil(value) end)
+  end
+
+  defp put_deferred_continuations(graph_inspection, []), do: graph_inspection
+
+  defp put_deferred_continuations(graph_inspection, deferred_continuations) do
+    Map.put(graph_inspection, :deferred_continuations, deferred_continuations)
+  end
+
   defp string_list(values) when is_list(values) do
     values
     |> Enum.filter(&(is_binary(&1) or is_atom(&1)))
@@ -498,4 +651,6 @@ defmodule SquidSonar.Runs.RunDetail do
       :error -> Map.get(map, to_string(key))
     end
   end
+
+  defp map_value(_value, _key), do: nil
 end

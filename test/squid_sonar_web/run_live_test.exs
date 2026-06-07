@@ -806,6 +806,119 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert raw_html =~ "capture_payment:dynamic:fraud_review"
   end
 
+  test "renders deferred continuation inspection and raw facts" do
+    visible_at = ~U[2026-05-15 10:45:00Z]
+    deferred_at = ~U[2026-05-15 10:15:00Z]
+
+    deferred_attempt = %{
+      step: "capture_payment",
+      status: :retry_scheduled,
+      attempt_number: 2,
+      runnable_key: "run-deferred-live:capture_payment:2",
+      visible_at: visible_at,
+      deferred: %{
+        reason: %{
+          message: :awaiting_provider,
+          target: %{step: :capture_payment, branch: :provider_callback},
+          context: %{decision: :hold, provider_reference: "pi_123"}
+        },
+        deferred_at: deferred_at,
+        from_runnable_key: "run-deferred-live:capture_payment:1",
+        wakeup: %{visible_at: visible_at}
+      }
+    }
+
+    snapshot =
+      snapshot(:running,
+        run_id: "run-deferred-live",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_step: "capture_payment",
+        reason: :deferred_continuation,
+        scheduled_attempts: [deferred_attempt],
+        next_visible_at: visible_at
+      )
+
+    graph =
+      graph_inspection(:running,
+        run_id: "run-deferred-live",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_node_id: "capture_payment",
+        nodes: [
+          graph_node("load_order", :completed, false),
+          graph_node("capture_payment", :deferred, true),
+          graph_node("send_receipt", :waiting, false)
+        ],
+        edges: [
+          graph_edge("load_order", "capture_payment", :ok),
+          graph_edge("capture_payment", "send_receipt", :ok)
+        ]
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "run-deferred-live",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        reason: :deferred_continuation,
+        step: "capture_payment",
+        summary: "A workflow step deferred its continuation.",
+        next_actions: [:wait_until_attempt_visible],
+        details: %{
+          deferred_attempt_count: 1,
+          next_visible_at: visible_at,
+          deferred: [
+            %{
+              reason: :awaiting_provider,
+              target: %{step: :capture_payment, branch: :provider_callback},
+              context: %{decision: :hold, provider_reference: "pi_123"}
+            }
+          ]
+        }
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-deferred-live"},
+        "/sonar/runs/run-deferred-live",
+        mounted_socket
+      )
+
+    html =
+      loaded_socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Deferred continuations"
+    assert html =~ "safe cancellation and replay guidance"
+    assert html =~ "capture_payment"
+    assert html =~ "reason awaiting provider"
+    assert html =~ "target capture_payment"
+    assert html =~ "branch provider_callback"
+    assert html =~ "visible 2026-05-15T10:45:00Z"
+    assert html =~ "deferred 2026-05-15T10:15:00Z"
+    assert html =~ "context decision, provider reference"
+    assert html =~ "wait_until_attempt_visible"
+    assert html =~ "squid-sonar-workflow-node-deferred"
+    assert html =~ "deferred"
+
+    {:noreply, raw_socket} =
+      RunLive.handle_event("select_workflow_panel", %{"view" => "raw"}, loaded_socket)
+
+    raw_html =
+      raw_socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
+    assert raw_html =~ "&quot;deferred_continuations&quot;"
+    assert raw_html =~ "awaiting_provider"
+    assert raw_html =~ "pi_123"
+  end
+
   test "renders recovery policy diagnostics when present" do
     recovery = compensation_recovery("ReleaseInventory")
 
