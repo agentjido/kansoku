@@ -24,9 +24,6 @@ Mount it inside a Phoenix host application to inspect recent runs, filter by
 status, search runtime metadata, and open detail pages with the workflow graph,
 diagnosis, attempt counts, history counts, and last error information.
 
-<img width="1361" height="592" alt="Screenshot 2026-05-29 at 10 53 44" src="https://github.com/user-attachments/assets/6a60b7f8-2c8a-4c30-b304-488a0ce17a4f" />
-<img width="1396" height="937" alt="Screenshot 2026-05-29 at 10 53 57" src="https://github.com/user-attachments/assets/fe8ff3af-f9c3-4d95-be09-59b952ea85e4" />
-
 ## Runtime Boundary
 
 SquidSonar is distributed as an embeddable library, not a standalone service. A
