@@ -1684,26 +1684,39 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 }
 
 .squid-sonar-workflow-node-recovery-meta {
-  align-items: baseline;
-  display: flex;
-  gap: 6px;
+  display: grid;
+  gap: 3px;
   min-width: 0;
 }
 
 .squid-sonar-workflow-node-recovery-panel strong {
   color: var(--squid-sonar-text);
-  flex: 1 1 auto;
+  display: block;
   font-size: 11px;
   font-weight: 700;
   line-height: 1.1;
   min-width: 0;
-  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.squid-sonar-workflow-node-recovery-panel em {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.squid-sonar-workflow-node-recovery-panel:hover strong,
+.squid-sonar-workflow-node-recovery-panel:hover em {
   overflow-wrap: anywhere;
   white-space: normal;
 }
 
 .squid-sonar-workflow-node-recovery-panel em {
-  flex: 0 0 auto;
+  color: inherit;
 }
 
 .squid-sonar-control-buttons {
