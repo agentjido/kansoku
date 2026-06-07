@@ -429,6 +429,44 @@ defmodule SquidSonarWeb.CoreComponents do
       <% end %>
 
       <section
+        :if={@detail.live_claims != []}
+        class="squid-sonar-detail-panel squid-sonar-live-claim-panel"
+      >
+        <h3>Live claims</h3>
+        <p>
+          Claim and heartbeat recovery evidence; external side effects remain owned by the runtime or host backend.
+        </p>
+        <.detail_item label="Suggested actions" value={next_actions(@detail.explanation)} />
+        <div class="squid-sonar-recovery-policy-list">
+          <article
+            :for={claim <- @detail.live_claims}
+            class="squid-sonar-recovery-policy-row"
+          >
+            <strong>{format_step(claim.step)}</strong>
+            <div class="squid-sonar-recovery-policy-tags">
+              <span>{claim_status_label(claim.status)}</span>
+              <span :if={claim.owner_id}>owner {claim.owner_id}</span>
+              <span :if={claim.claim_id}>claim {claim.claim_id}</span>
+              <span :if={claim.last_heartbeat_at}>
+                last heartbeat {format_time(claim.last_heartbeat_at)}
+              </span>
+              <span :if={claim.lease_until}>lease until {format_time(claim.lease_until)}</span>
+              <span :if={claim.runnable_key}>runnable {claim.runnable_key}</span>
+              <span :if={claim.attempt_number}>attempt {claim.attempt_number}</span>
+            </div>
+            <div
+              :if={claim.anomalies != []}
+              class="squid-sonar-recovery-policy-tags"
+            >
+              <span :for={anomaly <- claim.anomalies}>
+                evidence {format_claim_anomaly(anomaly)}
+              </span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section
         :if={@detail.compensation_evidence != []}
         class="squid-sonar-detail-panel squid-sonar-recovery-policy-panel"
       >
@@ -791,6 +829,20 @@ defmodule SquidSonarWeb.CoreComponents do
   defp compensation_status_label(:irreversible), do: "irreversible"
   defp compensation_status_label(:non_compensatable), do: "non-compensatable"
   defp compensation_status_label(status), do: format_policy_value(status)
+
+  defp claim_status_label(:active), do: "active"
+  defp claim_status_label(:expired), do: "expired"
+  defp claim_status_label(:reclaimable), do: "reclaimable"
+  defp claim_status_label(status), do: format_policy_value(status)
+
+  defp format_claim_anomaly(anomaly) when is_map(anomaly) do
+    case map_value(anomaly, :reason) do
+      nil -> "claim anomaly"
+      reason -> format_policy_value(reason)
+    end
+  end
+
+  defp format_claim_anomaly(_anomaly), do: "claim anomaly"
 
   defp format_dynamic_overlay_key(%{dynamic_key: key}) when is_binary(key), do: key
   defp format_dynamic_overlay_key(%{origin_node_id: origin}) when is_binary(origin), do: origin

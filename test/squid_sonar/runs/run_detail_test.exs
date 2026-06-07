@@ -272,6 +272,91 @@ defmodule SquidSonar.Runs.RunDetailTest do
            ] = detail.dynamic_work_overlays
   end
 
+  test "projects live claim and reclaimable expired claim evidence" do
+    active_lease_until = ~U[2026-05-15 10:45:00Z]
+    active_heartbeat_at = ~U[2026-05-15 10:40:00Z]
+    expired_lease_until = ~U[2026-05-15 10:05:00Z]
+
+    active_claim =
+      Map.merge(attempt("capture_payment", :claimed, 1, nil), %{
+        runnable_key: "run-claims:capture_payment:1",
+        owner_id: "worker-a",
+        claim_id: "claim-active",
+        last_heartbeat_at: active_heartbeat_at,
+        lease_until: active_lease_until
+      })
+
+    expired_claim =
+      Map.merge(attempt("reserve_inventory", :claimed, 1, nil), %{
+        runnable_key: "run-claims:reserve_inventory:1",
+        owner_id: "worker-b",
+        claim_id: "claim-expired",
+        lease_until: expired_lease_until
+      })
+
+    snapshot =
+      snapshot(:running,
+        run_id: "run-claims",
+        workflow: "Elixir.Example.Checkout",
+        reason: :expired_claim,
+        current_step: "reserve_inventory",
+        attempts: [active_claim],
+        expired_claims: [expired_claim],
+        anomalies: [
+          %{
+            reason: :stale_claim,
+            runnable_key: "run-claims:reserve_inventory:1",
+            claim_id: "claim-expired",
+            claim_token_hash: "secret-hash"
+          }
+        ]
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "run-claims",
+        workflow: "Elixir.Example.Checkout",
+        reason: :expired_claim,
+        step: "reserve_inventory",
+        next_actions: [:recover_expired_claim, :cancel]
+      )
+
+    graph =
+      graph_inspection(:running,
+        run_id: "run-claims",
+        workflow: "Elixir.Example.Checkout",
+        current_node_id: "reserve_inventory",
+        nodes: [
+          graph_node("capture_payment", :running, false),
+          graph_node("reserve_inventory", :running, true)
+        ]
+      )
+
+    detail = RunDetail.from_models(snapshot, explanation, graph)
+
+    assert [
+             %RunDetail.LiveClaim{
+               step: "capture_payment",
+               status: :active,
+               runnable_key: "run-claims:capture_payment:1",
+               owner_id: "worker-a",
+               claim_id: "claim-active",
+               last_heartbeat_at: ^active_heartbeat_at,
+               lease_until: ^active_lease_until,
+               anomalies: []
+             },
+             %RunDetail.LiveClaim{
+               step: "reserve_inventory",
+               status: :reclaimable,
+               runnable_key: "run-claims:reserve_inventory:1",
+               owner_id: "worker-b",
+               claim_id: "claim-expired",
+               lease_until: ^expired_lease_until,
+               anomalies: [%{reason: :stale_claim, claim_id: "claim-expired"}]
+             }
+           ] = detail.live_claims
+  end
+
   test "projects deferred continuation evidence from scheduled attempts" do
     visible_at = ~U[2026-05-15 10:45:00Z]
     deferred_at = ~U[2026-05-15 10:15:00Z]

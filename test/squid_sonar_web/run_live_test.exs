@@ -139,6 +139,111 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert html =~ "squid-sonar-workflow-panel-actions"
   end
 
+  test "renders live claim and heartbeat recovery evidence" do
+    active_lease_until = ~U[2026-05-15 10:45:00Z]
+    active_heartbeat_at = ~U[2026-05-15 10:40:00Z]
+    expired_lease_until = ~U[2026-05-15 10:05:00Z]
+
+    active_claim =
+      Map.merge(attempt("capture_payment", :claimed, 1, nil), %{
+        runnable_key: "run-live-claims:capture_payment:1",
+        owner_id: "worker-a",
+        claim_id: "claim-active",
+        last_heartbeat_at: active_heartbeat_at,
+        lease_until: active_lease_until
+      })
+
+    expired_claim =
+      Map.merge(attempt("reserve_inventory", :claimed, 1, nil), %{
+        runnable_key: "run-live-claims:reserve_inventory:1",
+        owner_id: "worker-b",
+        claim_id: "claim-expired",
+        lease_until: expired_lease_until
+      })
+
+    snapshot =
+      snapshot(:running,
+        run_id: "run-live-claims",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_step: "reserve_inventory",
+        reason: :expired_claim,
+        attempts: [active_claim],
+        expired_claims: [expired_claim],
+        anomalies: [
+          %{
+            reason: :stale_claim,
+            runnable_key: "run-live-claims:reserve_inventory:1",
+            claim_id: "claim-expired",
+            claim_token_hash: "secret-hash"
+          }
+        ]
+      )
+
+    graph =
+      graph_inspection(:running,
+        run_id: "run-live-claims",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_node_id: "reserve_inventory",
+        nodes: [
+          graph_node("capture_payment", :running, false),
+          graph_node("reserve_inventory", :running, true)
+        ],
+        edges: [
+          graph_edge("capture_payment", "reserve_inventory", :ok)
+        ]
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "run-live-claims",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        reason: :expired_claim,
+        step: "reserve_inventory",
+        summary: "A claimed dispatch attempt has expired and is recoverable.",
+        details: %{
+          expired_claim_count: 1,
+          oldest_lease_until: expired_lease_until
+        },
+        next_actions: [:recover_expired_claim, :cancel]
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-live-claims"},
+        "/sonar/runs/run-live-claims",
+        mounted_socket
+      )
+
+    html =
+      loaded_socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Live claims"
+    assert html =~ "Claim and heartbeat recovery evidence"
+    assert html =~ "capture_payment"
+    assert html =~ "active"
+    assert html =~ "worker-a"
+    assert html =~ "claim-active"
+    assert html =~ "last heartbeat 2026-05-15T10:40:00Z"
+    assert html =~ "lease until 2026-05-15T10:45:00Z"
+    assert html =~ "reserve_inventory"
+    assert html =~ "reclaimable"
+    assert html =~ "worker-b"
+    assert html =~ "claim-expired"
+    assert html =~ "lease until 2026-05-15T10:05:00Z"
+    assert html =~ "stale claim"
+    assert html =~ "recover_expired_claim"
+    assert html =~ "cancel"
+    refute html =~ "secret-hash"
+  end
+
   test "renders feedback after run control events" do
     snapshot =
       snapshot(:running,

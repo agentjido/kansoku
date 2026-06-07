@@ -177,6 +177,38 @@ defmodule SquidSonar.Runs.RunDetail do
     ]
   end
 
+  defmodule LiveClaim do
+    @moduledoc false
+
+    @type t :: %__MODULE__{
+            step: String.t() | nil,
+            status: :active | :expired | :reclaimable,
+            runnable_key: String.t() | nil,
+            attempt_number: non_neg_integer() | nil,
+            owner_id: String.t() | nil,
+            claim_id: String.t() | nil,
+            last_heartbeat_at: DateTime.t() | NaiveDateTime.t() | String.t() | nil,
+            lease_until: DateTime.t() | NaiveDateTime.t() | String.t() | nil,
+            source: :attempt | :expired_claim,
+            anomalies: [map()]
+          }
+
+    @enforce_keys [:status, :source]
+
+    defstruct [
+      :step,
+      :status,
+      :runnable_key,
+      :attempt_number,
+      :owner_id,
+      :claim_id,
+      :last_heartbeat_at,
+      :lease_until,
+      :source,
+      anomalies: []
+    ]
+  end
+
   @type t :: %__MODULE__{
           summary: Summary.t(),
           payload: map() | nil,
@@ -192,7 +224,8 @@ defmodule SquidSonar.Runs.RunDetail do
           compensation_evidence: [CompensationEvidence.t()],
           dynamic_work: [map()],
           dynamic_work_overlays: [DynamicWorkOverlay.t()],
-          deferred_continuations: [DeferredContinuation.t()]
+          deferred_continuations: [DeferredContinuation.t()],
+          live_claims: [LiveClaim.t()]
         }
 
   defstruct [
@@ -208,6 +241,7 @@ defmodule SquidSonar.Runs.RunDetail do
     dynamic_work: [],
     dynamic_work_overlays: [],
     deferred_continuations: [],
+    live_claims: [],
     planned_runnables: [],
     attempts: [],
     anomalies: []
@@ -218,6 +252,7 @@ defmodule SquidSonar.Runs.RunDetail do
   def from_models(%Snapshot{} = snapshot, %Diagnostic{} = explanation, %GraphInspection{} = graph) do
     recovery_policies = recovery_policies(explanation)
     deferred_continuations = deferred_continuations(snapshot, explanation)
+    live_claims = live_claims(snapshot, explanation)
 
     graph_inspection =
       graph
@@ -239,7 +274,8 @@ defmodule SquidSonar.Runs.RunDetail do
       compensation_evidence: compensation_evidence(snapshot, recovery_policies),
       dynamic_work: graph.dynamic_work,
       dynamic_work_overlays: dynamic_work_overlays(graph.dynamic_work_overlays),
-      deferred_continuations: deferred_continuations
+      deferred_continuations: deferred_continuations,
+      live_claims: live_claims
     }
   end
 
@@ -613,6 +649,100 @@ defmodule SquidSonar.Runs.RunDetail do
     |> compact_map()
   end
 
+  defp live_claims(%Snapshot{} = snapshot, %Diagnostic{} = explanation) do
+    expired_claims =
+      snapshot.expired_claims
+      |> List.wrap()
+      |> Enum.flat_map(
+        &live_claim(&1, snapshot, :expired_claim, expired_claim_status(explanation))
+      )
+
+    expired_keys =
+      expired_claims
+      |> Enum.map(& &1.runnable_key)
+      |> MapSet.new()
+      |> MapSet.delete(nil)
+
+    active_claims =
+      snapshot.attempts
+      |> List.wrap()
+      |> Enum.filter(fn attempt ->
+        claimed_attempt?(attempt) and
+          not MapSet.member?(expired_keys, string_or_nil(map_value(attempt, :runnable_key)))
+      end)
+      |> Enum.flat_map(&live_claim(&1, snapshot, :attempt, :active))
+
+    active_claims ++ expired_claims
+  end
+
+  defp live_claim(attempt, %Snapshot{} = snapshot, source, status) when is_map(attempt) do
+    claim = %LiveClaim{
+      step: string_or_nil(map_value(attempt, :step)),
+      status: status,
+      runnable_key: string_or_nil(map_value(attempt, :runnable_key)),
+      attempt_number: non_negative_integer_or_nil(map_value(attempt, :attempt_number)),
+      owner_id: string_or_nil(map_value(attempt, :owner_id)),
+      claim_id: string_or_nil(map_value(attempt, :claim_id)),
+      last_heartbeat_at:
+        map_value(attempt, :last_heartbeat_at) || map_value(attempt, :heartbeat_at),
+      lease_until: map_value(attempt, :lease_until),
+      source: source,
+      anomalies: claim_anomalies(snapshot.anomalies, attempt)
+    }
+
+    if live_claim?(claim), do: [claim], else: []
+  end
+
+  defp live_claim(_attempt, _snapshot, _source, _status), do: []
+
+  defp live_claim?(%LiveClaim{} = claim) do
+    not is_nil(claim.step) or not is_nil(claim.runnable_key) or not is_nil(claim.claim_id)
+  end
+
+  defp claimed_attempt?(attempt) when is_map(attempt) do
+    map_value(attempt, :status) in [:claimed, "claimed"]
+  end
+
+  defp claimed_attempt?(_attempt), do: false
+
+  defp expired_claim_status(%Diagnostic{next_actions: next_actions}) do
+    if :recover_expired_claim in List.wrap(next_actions) or
+         "recover_expired_claim" in List.wrap(next_actions) do
+      :reclaimable
+    else
+      :expired
+    end
+  end
+
+  defp claim_anomalies(anomalies, attempt) when is_map(attempt) do
+    anomalies
+    |> List.wrap()
+    |> Enum.flat_map(fn
+      anomaly when is_map(anomaly) ->
+        if claim_anomaly_matches?(anomaly, attempt) do
+          [sanitize_claim_anomaly(anomaly)]
+        else
+          []
+        end
+
+      _malformed ->
+        []
+    end)
+  end
+
+  defp claim_anomaly_matches?(anomaly, attempt) do
+    same_string?(map_value(anomaly, :runnable_key), map_value(attempt, :runnable_key)) or
+      same_string?(map_value(anomaly, :claim_id), map_value(attempt, :claim_id))
+  end
+
+  defp sanitize_claim_anomaly(anomaly) do
+    compact_map(%{
+      reason: map_value(anomaly, :reason),
+      entry_type: map_value(anomaly, :entry_type),
+      claim_id: string_or_nil(map_value(anomaly, :claim_id))
+    })
+  end
+
   defp first_map(values) do
     Enum.find_value(values, %{}, fn
       value when is_map(value) and map_size(value) > 0 -> value
@@ -642,8 +772,15 @@ defmodule SquidSonar.Runs.RunDetail do
   defp string_or_nil(value) when is_binary(value) or is_atom(value), do: to_string(value)
   defp string_or_nil(_value), do: nil
 
+  defp non_negative_integer_or_nil(value) when is_integer(value) and value >= 0, do: value
+  defp non_negative_integer_or_nil(_value), do: nil
+
   defp count_value(value) when is_integer(value) and value >= 0, do: value
   defp count_value(_value), do: 0
+
+  defp same_string?(nil, _right), do: false
+  defp same_string?(_left, nil), do: false
+  defp same_string?(left, right), do: to_string(left) == to_string(right)
 
   defp map_value(map, key) when is_map(map) do
     case Map.fetch(map, key) do
