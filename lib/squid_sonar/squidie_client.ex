@@ -48,6 +48,17 @@ defmodule SquidSonar.SquidieClient do
   """
   @callback replay(term(), keyword()) ::
               {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+  @doc """
+  Starts a run from a compiled Squidie workflow module.
+  """
+  @callback start(module(), map(), keyword()) ::
+              {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+
+  @doc """
+  Starts a run from a runtime-authored workflow spec.
+  """
+  @callback start_spec(term(), map(), keyword()) ::
+              {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
 
   @doc """
   Lists recent Squidie runs through the configured runtime.
@@ -111,4 +122,18 @@ defmodule SquidSonar.SquidieClient do
   @spec replay(term(), keyword()) ::
           {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
   def replay(run_id, opts), do: Squidie.replay(run_id, opts)
+
+  @doc """
+  Starts a run from a compiled Squidie workflow module.
+  """
+  @spec start(module(), map(), keyword()) ::
+          {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+  def start(workflow, payload, opts), do: Squidie.start(workflow, payload, opts)
+
+  @doc """
+  Starts a run from a runtime-authored workflow spec.
+  """
+  @spec start_spec(term(), map(), keyword()) ::
+          {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+  def start_spec(spec, payload, opts), do: Squidie.start_spec(spec, payload, opts)
 end

@@ -18,6 +18,9 @@ defmodule SquidSonarWeb.Hooks do
         :control_actor,
         Map.get(session, "control_actor", SquidSonar.Router.default_control_actor())
       )
+      |> assign(:runtime_spec, Map.get(session, "runtime_spec"))
+      |> assign(:runtime_specs, Map.get(session, "runtime_specs"))
+      |> assign(:action_registry, Map.get(session, "action_registry"))
 
     {:cont, socket}
   end

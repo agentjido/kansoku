@@ -45,6 +45,17 @@ defmodule SquidSonar.Router do
       resume actions. Pass a non-empty binary, a non-empty map, or an MFA tuple
       `{module, function, args}`. MFA callbacks receive the current `conn` as
       their first argument.
+    * `:runtime_specs` - host-approved workflow catalog used by the dashboard
+      start drawer. Pass a keyword list or map of stable keys to workflow modules
+      or runtime specs, or an MFA tuple `{module, function, args}`. Workflow
+      module entries start through `Squidie.start/3`; runtime spec entries start
+      through `Squidie.start_spec/3`.
+    * `:runtime_spec` - single runtime-authored workflow spec used by the
+      dashboard start drawer. Prefer `:runtime_specs` for new integrations.
+      Pass a map/struct or an MFA tuple `{module, function, args}`.
+    * `:action_registry` - host-owned action registry passed to
+      `Squidie.start_spec/3` for runtime spec entries. Pass a map, keyword list,
+      or MFA tuple.
   """
   defmacro squid_sonar(path, opts \\ []) do
     quote bind_quoted: [path: path, opts: opts] do
@@ -83,7 +94,10 @@ defmodule SquidSonar.Router do
       prefix,
       opts[:socket_path],
       opts[:transport],
-      Keyword.get(opts, :control_actor, @default_control_actor)
+      Keyword.get(opts, :control_actor, @default_control_actor),
+      Keyword.get(opts, :runtime_spec),
+      Keyword.get(opts, :action_registry),
+      Keyword.get(opts, :runtime_specs)
     ]
 
     session_opts = [
@@ -102,7 +116,7 @@ defmodule SquidSonar.Router do
   """
   @spec __session__(Plug.Conn.t() | map(), String.t(), String.t(), String.t()) :: map()
   def __session__(_conn, prefix, live_path, live_transport) do
-    __session__(%{}, prefix, live_path, live_transport, @default_control_actor)
+    __session__(%{}, prefix, live_path, live_transport, @default_control_actor, nil, nil, nil)
   end
 
   @doc """
@@ -110,11 +124,81 @@ defmodule SquidSonar.Router do
   """
   @spec __session__(Plug.Conn.t() | map(), String.t(), String.t(), String.t(), term()) :: map()
   def __session__(conn, prefix, live_path, live_transport, control_actor) do
+    __session__(conn, prefix, live_path, live_transport, control_actor, nil, nil, nil)
+  end
+
+  @doc """
+  Builds the LiveView session and resolves host-provided runtime spec options.
+  """
+  @spec __session__(
+          Plug.Conn.t() | map(),
+          String.t(),
+          String.t(),
+          String.t(),
+          term(),
+          term(),
+          term()
+        ) :: map()
+  def __session__(
+        conn,
+        prefix,
+        live_path,
+        live_transport,
+        control_actor,
+        runtime_spec,
+        action_registry
+      ) do
+    __session__(
+      conn,
+      prefix,
+      live_path,
+      live_transport,
+      control_actor,
+      runtime_spec,
+      action_registry,
+      nil
+    )
+  end
+
+  @doc """
+  Builds the LiveView session and resolves host-provided runtime spec catalog options.
+  """
+  @spec __session__(
+          Plug.Conn.t() | map(),
+          String.t(),
+          String.t(),
+          String.t(),
+          term(),
+          term(),
+          term(),
+          term()
+        ) :: map()
+  def __session__(
+        conn,
+        prefix,
+        live_path,
+        live_transport,
+        control_actor,
+        runtime_spec,
+        action_registry,
+        runtime_specs
+      ) do
+    runtime_spec = resolve_session_value(conn, runtime_spec)
+    action_registry = resolve_session_value(conn, action_registry)
+    runtime_specs = resolve_session_value(conn, runtime_specs)
+
+    validate_runtime_spec!(:runtime_spec, runtime_spec)
+    validate_action_registry!(:action_registry, action_registry)
+    validate_runtime_specs!(:runtime_specs, runtime_specs)
+
     %{
       "prefix" => prefix,
       "live_path" => live_path,
       "live_transport" => live_transport,
-      "control_actor" => resolve_control_actor(conn, control_actor)
+      "control_actor" => resolve_control_actor(conn, control_actor),
+      "runtime_spec" => runtime_spec,
+      "action_registry" => action_registry,
+      "runtime_specs" => runtime_specs
     }
   end
 
@@ -160,16 +244,73 @@ defmodule SquidSonar.Router do
     end
   end
 
+  defp validate_opt!({:runtime_spec, spec}) do
+    validate_runtime_spec!(:runtime_spec, spec, allow_mfa?: true)
+  end
+
+  defp validate_opt!({:runtime_specs, specs}) do
+    validate_runtime_specs!(:runtime_specs, specs, allow_mfa?: true)
+  end
+
+  defp validate_opt!({:action_registry, registry}) do
+    validate_action_registry!(:action_registry, registry, allow_mfa?: true)
+  end
+
   defp validate_opt!(_option), do: :ok
 
   defp valid_control_actor_spec?(actor) when is_binary(actor), do: actor != ""
   defp valid_control_actor_spec?(actor) when is_map(actor), do: map_size(actor) > 0
 
-  defp valid_control_actor_spec?({module, function, args}) do
+  defp valid_control_actor_spec?(mfa) when is_tuple(mfa), do: valid_mfa_spec?(mfa)
+
+  defp valid_control_actor_spec?(_actor), do: false
+
+  defp valid_mfa_spec?({module, function, args}) do
     is_atom(module) and is_atom(function) and is_list(args)
   end
 
-  defp valid_control_actor_spec?(_actor), do: false
+  defp valid_mfa_spec?(_spec), do: false
+
+  defp validate_runtime_spec!(name, spec, opts \\ []) do
+    allow_mfa? = Keyword.get(opts, :allow_mfa?, false)
+    expected = "a map or struct#{mfa_suffix(allow_mfa?)}"
+
+    unless is_nil(spec) or is_map(spec) or (allow_mfa? and valid_mfa_spec?(spec)) do
+      raise ArgumentError, """
+      invalid #{inspect(name)}, expected #{expected},
+      got #{inspect(spec)}
+      """
+    end
+  end
+
+  defp validate_runtime_specs!(name, specs, opts \\ []) do
+    allow_mfa? = Keyword.get(opts, :allow_mfa?, false)
+    expected = "a keyword list or map#{mfa_suffix(allow_mfa?)}"
+
+    unless is_nil(specs) or is_map(specs) or Keyword.keyword?(specs) or
+             (allow_mfa? and valid_mfa_spec?(specs)) do
+      raise ArgumentError, """
+      invalid #{inspect(name)}, expected #{expected},
+      got #{inspect(specs)}
+      """
+    end
+  end
+
+  defp validate_action_registry!(name, registry, opts \\ []) do
+    allow_mfa? = Keyword.get(opts, :allow_mfa?, false)
+    expected = "a map or keyword list#{mfa_suffix(allow_mfa?)}"
+
+    unless is_nil(registry) or is_map(registry) or Keyword.keyword?(registry) or
+             (allow_mfa? and valid_mfa_spec?(registry)) do
+      raise ArgumentError, """
+      invalid #{inspect(name)}, expected #{expected},
+      got #{inspect(registry)}
+      """
+    end
+  end
+
+  defp mfa_suffix(true), do: ", or {module, function, args} tuple"
+  defp mfa_suffix(false), do: ""
 
   defp resolve_control_actor(conn, {module, function, args}) do
     conn
@@ -178,6 +319,12 @@ defmodule SquidSonar.Router do
   end
 
   defp resolve_control_actor(_conn, actor), do: normalize_control_actor(actor)
+
+  defp resolve_session_value(conn, {module, function, args}) do
+    apply(module, function, [conn | args])
+  end
+
+  defp resolve_session_value(_conn, value), do: value
 
   defp normalize_control_actor(actor) when is_binary(actor) and actor != "", do: actor
   defp normalize_control_actor(actor) when is_map(actor) and map_size(actor) > 0, do: actor
