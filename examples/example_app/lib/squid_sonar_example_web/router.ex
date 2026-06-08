@@ -23,6 +23,10 @@ defmodule SquidSonarExampleWeb.Router do
   scope "/" do
     pipe_through :browser
 
-    squid_sonar("/sonar", otp_app: :squid_sonar_example)
+    squid_sonar("/sonar",
+      otp_app: :squid_sonar_example,
+      runtime_specs: {SquidSonarExample.RuntimeSpecDemo, :runtime_specs, []},
+      action_registry: {SquidSonarExample.RuntimeSpecDemo, :action_registry, []}
+    )
   end
 end

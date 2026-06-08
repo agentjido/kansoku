@@ -21,6 +21,23 @@ defmodule SquidSonar.RunsTest do
     end
   end
 
+  defmodule AccountWorkflow do
+    use Squidie.Workflow
+
+    workflow do
+      trigger :manual do
+        manual()
+
+        payload do
+          field(:account_id, :string)
+        end
+      end
+
+      step(:load_account, :log, message: "load account")
+      transition(:load_account, on: :ok, to: :complete)
+    end
+  end
+
   defmodule ReleaseInventory do
     use Squidie.Step,
       name: :release_inventory,
@@ -129,6 +146,69 @@ defmodule SquidSonar.RunsTest do
 
     assert {:error, {:missing_config, [:repo]}} =
              Runs.list_runs([], client: @client)
+  end
+
+  test "starts a runtime-authored spec through the host action registry boundary" do
+    spec = runtime_spec()
+    payload = %{"order_id" => "order-1"}
+    normalized_payload = %{order_id: "order-1"}
+    registry = %{"load_order" => CheckoutWorkflow}
+
+    FakeSquidieClient.put_start_spec(fn started_spec, started_payload, opts ->
+      send(self(), {:start_spec, started_spec, started_payload, opts})
+
+      {:ok,
+       snapshot(:running,
+         run_id: "runtime-spec-run",
+         workflow: "RuntimeCheckout",
+         reason: :attempt_visible
+       )}
+    end)
+
+    assert {:ok, started_run} =
+             Runs.start_spec(spec, payload,
+               client: @client,
+               squidie: [queue: "critical"],
+               action_registry: registry
+             )
+
+    assert started_run.run_id == "runtime-spec-run"
+
+    assert_received {:start_spec, ^spec, ^normalized_payload,
+                     [queue: "critical", action_registry: ^registry]}
+  end
+
+  test "starts a DSL workflow through the workflow boundary" do
+    payload = %{"account_id" => "acct-1"}
+
+    FakeSquidieClient.put_start(fn workflow, started_payload, opts ->
+      send(self(), {:start_workflow, workflow, started_payload, opts})
+
+      {:ok,
+       snapshot(:running,
+         run_id: "workflow-run",
+         workflow: Atom.to_string(workflow),
+         reason: :attempt_visible
+       )}
+    end)
+
+    assert {:ok, started_run} =
+             Runs.start_workflow(AccountWorkflow, payload,
+               client: @client,
+               squidie: [queue: "critical"]
+             )
+
+    assert started_run.run_id == "workflow-run"
+
+    assert_received {:start_workflow, AccountWorkflow, %{account_id: "acct-1"},
+                     [queue: "critical"]}
+  end
+
+  test "returns runtime spec start errors unchanged" do
+    FakeSquidieClient.put_start_spec({:error, {:invalid_payload, :expected_map}})
+
+    assert {:error, {:invalid_payload, :expected_map}} =
+             Runs.start_spec(runtime_spec(), "not-a-map", client: @client)
   end
 
   test "gets run detail with journal evidence and explanation" do
@@ -708,6 +788,22 @@ defmodule SquidSonar.RunsTest do
       anomalies: Keyword.get(attrs, :anomalies, []),
       deadline: Keyword.get(attrs, :deadline),
       definition_version: Keyword.get(attrs, :definition_version, 1)
+    }
+  end
+
+  defp runtime_spec do
+    %{
+      workflow: RuntimeCheckout,
+      triggers: [%{name: :manual, type: :manual, config: %{}, payload: []}],
+      payload: [%{name: :order_id, type: :string, opts: []}],
+      steps: [
+        %{name: :load_order, action: "load_order", module: :log, opts: [message: "load order"]}
+      ],
+      transitions: [%{from: :load_order, on: :ok, to: :complete}],
+      retries: [],
+      entry_steps: [:load_order],
+      initial_step: :load_order,
+      entry_step: :load_order
     }
   end
 end

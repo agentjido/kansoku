@@ -48,6 +48,16 @@ defmodule SquidSonar.FakeSquidieClient do
     result({__MODULE__, :replay}, [run_id, opts], {:error, :not_found})
   end
 
+  @impl SquidSonar.SquidieClient
+  def start(workflow, payload, opts) do
+    result({__MODULE__, :start}, [workflow, payload, opts], {:error, :not_found})
+  end
+
+  @impl SquidSonar.SquidieClient
+  def start_spec(spec, payload, opts) do
+    result({__MODULE__, :start_spec}, [spec, payload, opts], {:error, :not_found})
+  end
+
   @doc """
   Sets the fake response for listing runs.
   """
@@ -101,6 +111,18 @@ defmodule SquidSonar.FakeSquidieClient do
   """
   @spec put_replay(term()) :: term()
   def put_replay(result), do: Process.put({__MODULE__, :replay}, result)
+
+  @doc """
+  Sets the fake response for workflow starts.
+  """
+  @spec put_start(term()) :: term()
+  def put_start(result), do: Process.put({__MODULE__, :start}, result)
+
+  @doc """
+  Sets the fake response for runtime spec starts.
+  """
+  @spec put_start_spec(term()) :: term()
+  def put_start_spec(result), do: Process.put({__MODULE__, :start_spec}, result)
 
   defp result(key, args, default) do
     case Process.get(key, default) do

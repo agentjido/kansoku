@@ -3,8 +3,10 @@ defmodule SquidSonarExample.JournalRunTest do
 
   alias Ecto.Adapters.SQL.Sandbox
   alias SquidSonarExample.Repo
+  alias SquidSonarExample.RuntimeSpecDemo
   alias SquidSonarExample.Workflows.PausedCheckout
   alias SquidSonarExample.Workflows.ManualReviewCheckout
+  alias SquidSonarExample.Workflows.SagaCheckout
 
   setup do
     :ok = Sandbox.checkout(Repo)
@@ -82,6 +84,39 @@ defmodule SquidSonarExample.JournalRunTest do
            ] = graph.dynamic_work_overlays
   end
 
+  test "starts the runtime spec demo through the host action registry" do
+    {:ok, started_run} =
+      SquidSonar.Runs.start_spec(
+        RuntimeSpecDemo.spec(%Plug.Conn{}),
+        %{"order_id" => "order-runtime-spec", "customer_id" => "cust_demo"},
+        action_registry: RuntimeSpecDemo.action_registry(%Plug.Conn{})
+      )
+
+    assert started_run.run_id
+    assert started_run.workflow == "Elixir.SquidSonarExample.Workflows.CompletedCheckout"
+
+    drain_run(started_run.run_id)
+
+    assert {:ok, completed_run} = await_status(started_run.run_id, :completed)
+    assert completed_run.terminal?
+  end
+
+  test "starts the saga checkout DSL workflow through SquidSonar" do
+    {:ok, started_run} =
+      SquidSonar.Runs.start_workflow(
+        SagaCheckout,
+        %{"order_id" => "order-saga-start", "customer_id" => "cust_demo"}
+      )
+
+    assert started_run.run_id
+    assert started_run.workflow == "Elixir.SquidSonarExample.Workflows.SagaCheckout"
+
+    drain_run(started_run.run_id)
+
+    assert {:ok, failed_run} = await_status(started_run.run_id, :failed)
+    assert failed_run.terminal?
+  end
+
   test "example seed creates a dynamic work overlay demo run" do
     Mix.Task.reenable("example.seed")
 
@@ -123,6 +158,24 @@ defmodule SquidSonarExample.JournalRunTest do
   end
 
   defp await_status(run_id, _expected_status, 0), do: Squidie.inspect_run(run_id)
+
+  defp drain_run(run_id, attempts_remaining \\ 8)
+
+  defp drain_run(_run_id, 0), do: :ok
+
+  defp drain_run(run_id, attempts_remaining) do
+    case Squidie.inspect_run(run_id) do
+      {:ok, %{terminal?: true}} ->
+        :ok
+
+      {:ok, _run} ->
+        _result = Squidie.execute_next(owner_id: "squid-sonar-example-test")
+        drain_run(run_id, attempts_remaining - 1)
+
+      {:error, _reason} ->
+        :ok
+    end
+  end
 
   defp reset_example_state! do
     {:ok, _result} =

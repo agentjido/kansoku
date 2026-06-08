@@ -24,7 +24,8 @@ Mount it inside a Phoenix host application to inspect recent runs, filter by
 status, search runtime metadata, and open detail pages with the workflow graph,
 diagnosis, attempt counts, history counts, and last error information. It also
 exposes Squidie control operations such as cancel, resume, approval, rejection,
-and replay when the host application wires the required operator context.
+replay, and runtime-spec starts when the host application wires the required
+operator context.
 
 ## Runtime Boundary
 
@@ -48,6 +49,8 @@ SquidSonar interacts with Squidie through:
 - `Squidie.approve/3` - Approve manual approval steps
 - `Squidie.reject/3` - Reject manual approval steps
 - `Squidie.replay/2` - Replay completed workflows
+- `Squidie.start/3` - Start a run from a host-provided workflow module
+- `Squidie.start_spec/3` - Start a run from a host-provided runtime spec
 
 Host applications still own workers, queue delivery, scheduler
 setup, and backend leasing or fencing. When a Squidie host uses Bedrock or
@@ -145,7 +148,9 @@ squid_sonar "/sonar",
   as: :runtime_sonar,
   socket_path: "/live",
   transport: "websocket",
-  control_actor: {MyAppWeb.SquidSonarAudit, :control_actor, []}
+  control_actor: {MyAppWeb.SquidSonarAudit, :control_actor, []},
+  runtime_specs: {MyAppWeb.SquidSonarRuntimeSpec, :runtime_specs, []},
+  action_registry: {MyAppWeb.SquidSonarRuntimeSpec, :action_registry, []}
 ```
 
 `transport` can be `"websocket"` or `"longpoll"`.
@@ -173,6 +178,47 @@ If omitted, SquidSonar uses a placeholder actor so local demos can exercise
 manual controls. Production mounts should pass the authenticated operator once
 the host app wires SquidSonar into its own auth pipeline.
 
+`runtime_specs` and `action_registry` enable a start drawer on the `/sonar`
+dashboard. `runtime_specs` is a host-approved catalog of workflows that an
+operator may start. Pass a keyword list or map of stable keys to Squidie DSL
+workflow modules or runtime specs, or pass an MFA tuple that receives the
+current `Plug.Conn` as its first argument:
+
+```elixir
+defmodule MyAppWeb.SquidSonarRuntimeSpec do
+  def runtime_specs(_conn) do
+    [
+      checkout: MyApp.Workflows.Checkout,
+      invoice_reconciliation: MyApp.Workflows.InvoiceReconciliation
+    ]
+  end
+end
+```
+
+The drawer lists those configured workflows, prepopulates payload JSON from the
+selected workflow's payload contract, and starts the selected host-approved
+workflow with that payload. The browser submits only the selected catalog key
+plus payload JSON; SquidSonar looks up the entry server-side. DSL workflow
+module entries start through `Squidie.start/3`. Runtime-authored spec entries
+start through `Squidie.start_spec/3`.
+
+This is not a full workflow JSON editor. If operators need arbitrary workflow
+JSON, the host app should first validate and approve that JSON into a runtime
+spec catalog entry and action registry. The action registry is the trust
+boundary for runtime-authored specs: specs should reference stable action keys,
+and the host maps those keys to approved Squidie/Jido action modules before
+`Squidie.start_spec/3` runs. DSL workflow modules do not need action keys for
+their own steps. `runtime_spec` remains supported as a single-spec compatibility
+option, but new integrations should prefer `runtime_specs`.
+
+Do not put secrets or tenant-private data in the runtime spec or action
+registry. These values are part of the signed LiveView session used to boot the
+embedded UI.
+
+Runtime-spec starts are activation-only in SquidSonar. Squidie persists enough
+definition data for inspection, but replay of runtime-spec runs is not
+supported. DSL workflow module entries use Squidie's normal workflow start path.
+
 ## Security
 
 SquidSonar does not ship its own authentication layer. Protect the mounted route
@@ -194,6 +240,8 @@ manual controls can reflect follow-up workflow work without a browser refresh.
 The repository includes a Phoenix example app at `examples/example_app`. It
 mounts SquidSonar at `/sonar` and seeds real Squidie workflows that produce
 completed, failed, retrying, paused, approval-paused, and saga recovery runs.
+It also configures a host-owned runtime-spec catalog exposed from the `/sonar`
+dashboard drawer.
 The saga recovery run includes a compensatable inventory reservation step so
 the dashboard can show declared rollback metadata and recovery policy
 diagnostics without calling rollback code. The example server also starts a
