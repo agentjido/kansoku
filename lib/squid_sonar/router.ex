@@ -56,10 +56,10 @@ defmodule SquidSonar.Router do
     * `:action_registry` - host-owned action registry passed to
       `Squidie.start_spec/3` for runtime spec entries. Pass a map, keyword list,
       or MFA tuple.
-    * `:saved_specs` - host-owned saved workflow spec drafts surfaced by
-      SquidSonar. Pass a keyword list or map of stable keys to draft metadata,
-      or an MFA tuple `{module, function, args}`. The host owns persistence,
-      approval, action registry policy, and activation decisions.
+    * `:saved_specs` - host-owned saved workflow spec records surfaced by
+      SquidSonar. Pass a keyword list or map of stable keys to saved-spec
+      metadata, or an MFA tuple `{module, function, args}`. The host owns
+      persistence, approval, action registry policy, and activation decisions.
   """
   defmacro squid_sonar(path, opts \\ []) do
     quote bind_quoted: [path: path, opts: opts] do

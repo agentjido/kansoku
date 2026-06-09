@@ -1,6 +1,6 @@
 defmodule SquidSonarWeb.SavedSpecLive do
   @moduledoc """
-  Saved workflow spec draft detail surface.
+  Saved workflow spec detail surface.
   """
 
   use SquidSonarWeb, :live_view
@@ -83,7 +83,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
           <section class="squid-sonar-saved-spec-detail">
             <header class="squid-sonar-saved-spec-hero">
               <div>
-                <p class="squid-sonar-eyebrow">Host-owned draft</p>
+                <p class="squid-sonar-eyebrow">Host-provided spec</p>
                 <h2>{@saved_spec.title}</h2>
                 <p :if={@saved_spec.description}>{@saved_spec.description}</p>
               </div>
@@ -120,7 +120,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
         <% else %>
           <section class="squid-sonar-empty-state">
             <h2>Saved workflow spec not found</h2>
-            <p>The host application did not provide a saved draft for this key.</p>
+            <p>The host application did not provide a saved spec for this key.</p>
           </section>
         <% end %>
       </div>
@@ -243,7 +243,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
       <div class="squid-sonar-panel-heading">
         <div>
           <p class="squid-sonar-eyebrow">Source comparison</p>
-          <h3>Draft diff</h3>
+          <h3>Source diff</h3>
         </div>
       </div>
       <p>No source spec was provided by the host application.</p>
@@ -257,7 +257,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
       <div class="squid-sonar-panel-heading">
         <div>
           <p class="squid-sonar-eyebrow">Source comparison</p>
-          <h3>Draft diff</h3>
+          <h3>Source diff</h3>
         </div>
       </div>
 
@@ -265,7 +265,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
         <% {:ok, diff} -> %>
           <pre class="squid-sonar-json-block">{json_pretty(diff)}</pre>
         <% {:error, reason} -> %>
-          <p>Draft diff unavailable.</p>
+          <p>Source diff unavailable.</p>
           <p>{format_start_error(reason)}</p>
       <% end %>
     </section>

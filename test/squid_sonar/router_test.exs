@@ -163,10 +163,10 @@ defmodule SquidSonar.RouterTest do
            ]
   end
 
-  test "supports saved spec draft catalog and action registry boundaries" do
+  test "supports saved spec catalog and action registry boundaries" do
     saved_specs = [
-      checkout_draft: %{
-        title: "Checkout draft",
+      checkout_runtime_spec: %{
+        title: "Checkout runtime spec",
         status: :approved,
         editor_json: %{"workflow" => "RuntimeCheckout"}
       }
@@ -243,7 +243,7 @@ defmodule SquidSonar.RouterTest do
 
     assert session["runtime_spec"] == %{workflow: RuntimeCheckout}
     assert session["action_registry"] == %{"load_order" => __MODULE__}
-    assert session["saved_specs"] == [checkout_draft: %{title: "Checkout draft"}]
+    assert session["saved_specs"] == [checkout_runtime_spec: %{title: "Checkout runtime spec"}]
     assert session["runtime_specs"] == [checkout: %{workflow: RuntimeCheckout}]
   end
 
@@ -318,7 +318,9 @@ defmodule SquidSonar.RouterTest do
   def runtime_specs_from_conn(%Plug.Conn{}), do: [checkout: %{workflow: RuntimeCheckout}]
 
   @spec saved_specs_from_conn(Plug.Conn.t()) :: keyword(map())
-  def saved_specs_from_conn(%Plug.Conn{}), do: [checkout_draft: %{title: "Checkout draft"}]
+  def saved_specs_from_conn(%Plug.Conn{}) do
+    [checkout_runtime_spec: %{title: "Checkout runtime spec"}]
+  end
 
   @spec invalid_runtime_spec_from_conn(Plug.Conn.t()) :: term()
   def invalid_runtime_spec_from_conn(%Plug.Conn{}), do: :not_a_spec

@@ -564,13 +564,13 @@ defmodule SquidSonarWeb.PageLiveTest do
     refute html =~ "squid-sonar-runtime-spec-drawer"
   end
 
-  test "lists host-provided saved workflow spec drafts on the dashboard" do
+  test "lists host-provided saved workflow specs on the dashboard" do
     FakeSquidieClient.put_list_runs({:ok, []})
 
     {:ok, socket} =
       mount_with_saved_specs(
-        checkout_draft: %{
-          title: "Checkout approval draft",
+        checkout_runtime_spec: %{
+          title: "Checkout runtime spec",
           status: :approved,
           editor_json: editor_json()
         }
@@ -582,12 +582,12 @@ defmodule SquidSonarWeb.PageLiveTest do
       |> rendered_to_string()
 
     assert html =~ "Saved workflow specs"
-    assert html =~ "Checkout approval draft"
+    assert html =~ "Checkout runtime spec"
     assert html =~ "Approved"
-    assert html =~ ~s(href="/sonar/saved-specs/checkout_draft")
+    assert html =~ ~s(href="/sonar/saved-specs/checkout_runtime_spec")
   end
 
-  test "does not render saved workflow spec drafts without host configuration" do
+  test "does not render saved workflow specs without host configuration" do
     FakeSquidieClient.put_list_runs({:ok, []})
 
     html = render_page()

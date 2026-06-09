@@ -70,8 +70,8 @@ defmodule SquidSonarExample.RuntimeSpecDemo do
     runtime_spec = spec(conn)
 
     [
-      checkout_draft: %{
-        title: "Runtime checkout draft",
+      checkout_runtime_spec: %{
+        title: "Runtime checkout spec",
         description: "Approved runtime-authored checkout spec owned by the host app.",
         status: :approved,
         editor_json: EditorSpec.to_map(runtime_spec),

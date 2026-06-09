@@ -33,12 +33,12 @@ defmodule SquidSonarWeb.SavedSpecLiveTest do
     end)
   end
 
-  test "renders validation, graph preview, raw JSON, and source diff for a saved draft" do
+  test "renders validation, graph preview, raw JSON, and source diff for a saved spec" do
     {:ok, socket} =
       mount_saved_spec(
-        "checkout_draft",
-        checkout_draft: %{
-          title: "Checkout approval draft",
+        "checkout_runtime_spec",
+        checkout_runtime_spec: %{
+          title: "Checkout runtime spec",
           status: :approved,
           editor_json: editor_json(),
           source_spec: source_editor_json(),
@@ -51,7 +51,7 @@ defmodule SquidSonarWeb.SavedSpecLiveTest do
       |> SavedSpecLive.render()
       |> rendered_to_string()
 
-    assert html =~ "Checkout approval draft"
+    assert html =~ "Checkout runtime spec"
     assert html =~ "Approved"
     assert html =~ "Valid"
     assert html =~ "Graph preview"
@@ -59,7 +59,7 @@ defmodule SquidSonarWeb.SavedSpecLiveTest do
     assert html =~ "capture_payment"
     assert html =~ "Raw editor JSON"
     assert html =~ "Raw runtime spec"
-    assert html =~ "Draft diff"
+    assert html =~ "Source diff"
     assert html =~ "nodes_added"
   end
 
@@ -119,10 +119,10 @@ defmodule SquidSonarWeb.SavedSpecLiveTest do
 
     {:ok, socket} =
       mount_saved_spec(
-        "checkout_draft",
+        "checkout_runtime_spec",
         [
-          checkout_draft: %{
-            title: "Checkout approval draft",
+          checkout_runtime_spec: %{
+            title: "Checkout runtime spec",
             status: :approved,
             editor_json: editor_json(),
             spec: spec
@@ -145,9 +145,9 @@ defmodule SquidSonarWeb.SavedSpecLiveTest do
   test "sets theme from the saved spec detail page" do
     {:ok, socket} =
       mount_saved_spec(
-        "checkout_draft",
-        checkout_draft: %{
-          title: "Checkout approval draft",
+        "checkout_runtime_spec",
+        checkout_runtime_spec: %{
+          title: "Checkout runtime spec",
           status: :approved,
           editor_json: editor_json()
         }

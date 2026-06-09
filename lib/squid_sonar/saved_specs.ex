@@ -1,6 +1,6 @@
 defmodule SquidSonar.SavedSpecs do
   @moduledoc """
-  Host-owned saved workflow spec draft boundary.
+  Host-owned saved workflow spec boundary.
 
   SquidSonar normalizes and previews values the host provides, but persistence,
   approval policy, action registry ownership, and activation remain host-owned.
@@ -28,7 +28,7 @@ defmodule SquidSonar.SavedSpecs do
         }
 
   @doc """
-  Lists saved workflow spec drafts from host-provided keyed draft data.
+  Lists saved workflow spec records from host-provided keyed data.
   """
   @spec list(term(), term()) :: [saved_spec()]
   def list(saved_specs, action_registry \\ nil) do
@@ -39,7 +39,7 @@ defmodule SquidSonar.SavedSpecs do
   end
 
   @doc """
-  Fetches one saved workflow spec draft by its stable host key.
+  Fetches one saved workflow spec record by its stable host key.
   """
   @spec get(term(), String.t(), term()) :: {:ok, saved_spec()} | {:error, :not_found}
   def get(saved_specs, key, action_registry \\ nil) when is_binary(key) do
@@ -53,7 +53,7 @@ defmodule SquidSonar.SavedSpecs do
   end
 
   @doc """
-  Builds example payload JSON for a saved draft's executable runtime spec.
+  Builds example payload JSON for a saved spec's executable runtime spec.
   """
   @spec payload_json(saved_spec()) :: String.t()
   def payload_json(%{spec: spec}) do
@@ -182,7 +182,7 @@ defmodule SquidSonar.SavedSpecs do
     |> String.capitalize()
   end
 
-  defp human_status(_status), do: "Draft"
+  defp human_status(_status), do: "Saved"
 
   defp startable?(status, %{status: :valid}, attrs) do
     approved_status?(status) and is_map(field(attrs, :spec, "spec"))

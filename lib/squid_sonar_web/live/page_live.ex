@@ -354,7 +354,7 @@ defmodule SquidSonarWeb.PageLive do
     <section class="squid-sonar-saved-specs-panel" aria-label="Saved workflow specs">
       <div class="squid-sonar-panel-heading">
         <div>
-          <p class="squid-sonar-eyebrow">Host drafts</p>
+          <p class="squid-sonar-eyebrow">Saved specs</p>
           <h2>Saved workflow specs</h2>
         </div>
       </div>

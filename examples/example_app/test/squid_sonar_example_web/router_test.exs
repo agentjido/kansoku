@@ -58,9 +58,9 @@ defmodule SquidSonarExampleWeb.RouterTest do
            }
   end
 
-  test "seeds an approved saved runtime spec draft" do
+  test "seeds an approved saved runtime spec" do
     saved_specs = SquidSonarExample.RuntimeSpecDemo.saved_specs(%Plug.Conn{})
-    saved_spec = Keyword.fetch!(saved_specs, :checkout_draft)
+    saved_spec = Keyword.fetch!(saved_specs, :checkout_runtime_spec)
 
     assert saved_spec.status == :approved
     assert saved_spec.editor_json["workflow"] =~ "CompletedCheckout"
