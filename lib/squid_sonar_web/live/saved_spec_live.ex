@@ -25,6 +25,11 @@ defmodule SquidSonarWeb.SavedSpecLive do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("set_theme", %{"theme" => theme}, socket) do
+    {:noreply, assign(socket, :theme, normalize_theme(theme))}
+  end
+
+  @impl Phoenix.LiveView
   def handle_event("start_saved_spec", %{"saved_spec_start" => params}, socket) do
     saved_spec = socket.assigns.saved_spec
     payload_json = Map.get(params, "payload_json", socket.assigns.saved_spec_payload_json)
@@ -300,6 +305,11 @@ defmodule SquidSonarWeb.SavedSpecLive do
 
   defp validation_label(%{status: :valid}), do: "Valid"
   defp validation_label(%{status: :invalid}), do: "Invalid"
+
+  defp normalize_theme("system"), do: :system
+  defp normalize_theme("light"), do: :light
+  defp normalize_theme("dark"), do: :dark
+  defp normalize_theme(_theme), do: :system
 
   defp format_start_error(:invalid_payload_json), do: "Payload JSON is invalid."
 

@@ -142,6 +142,29 @@ defmodule SquidSonarWeb.SavedSpecLiveTest do
     assert {:live, :redirect, %{to: "/sonar/runs/saved-spec-run"}} = started_socket.redirected
   end
 
+  test "sets theme from the saved spec detail page" do
+    {:ok, socket} =
+      mount_saved_spec(
+        "checkout_draft",
+        checkout_draft: %{
+          title: "Checkout approval draft",
+          status: :approved,
+          editor_json: editor_json()
+        }
+      )
+
+    {:noreply, themed_socket} =
+      SavedSpecLive.handle_event("set_theme", %{"theme" => "light"}, socket)
+
+    html =
+      themed_socket.assigns
+      |> SavedSpecLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "squid-sonar-theme-light"
+    refute html =~ "squid-sonar-theme-dark"
+  end
+
   defp mount_saved_spec(key, saved_specs, registry \\ nil) do
     socket =
       %Socket{}
