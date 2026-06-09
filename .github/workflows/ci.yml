@@ -120,6 +120,28 @@ jobs:
       - name: Check compile-time dependency cycles
         run: mix xref graph --format cycles --label compile-connected --fail-above 0
 
+  quality-gates:
+    name: Static Analysis (Quality Gates)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Setup Elixir
+        uses: ./.github/actions/setup-elixir
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Compile
+        run: mix compile
+
+      - name: Run quality gates
+        run: mix quality_gates
+
   docs:
     name: Documentation Health (Doctor)
     runs-on: ubuntu-latest

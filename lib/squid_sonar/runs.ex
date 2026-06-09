@@ -175,12 +175,14 @@ defmodule SquidSonar.Runs do
   defp normalize_payload_field_name(name, payload) when is_atom(name) and not is_nil(name) do
     string_name = Atom.to_string(name)
 
-    if Map.has_key?(payload, string_name) do
-      payload
-      |> Map.put_new(name, Map.fetch!(payload, string_name))
-      |> Map.delete(string_name)
-    else
-      payload
+    case Map.fetch(payload, string_name) do
+      {:ok, value} ->
+        payload
+        |> Map.put_new(name, value)
+        |> Map.delete(string_name)
+
+      :error ->
+        payload
     end
   end
 

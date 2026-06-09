@@ -851,9 +851,10 @@ defmodule SquidSonarWeb.CoreComponents do
   defp format_deferred_context(context) when is_map(context) do
     keys =
       context
-      |> Map.keys()
-      |> Enum.filter(&(is_binary(&1) or is_atom(&1)))
-      |> Enum.map(&format_policy_value/1)
+      |> Enum.flat_map(fn
+        {key, _value} when is_binary(key) or is_atom(key) -> [format_policy_value(key)]
+        _other -> []
+      end)
       |> Enum.sort()
 
     if keys == [], do: "present", else: Enum.join(keys, ", ")
