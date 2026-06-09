@@ -354,28 +354,44 @@ defmodule SquidSonar.Runs.RunDetail do
     policies_by_step =
       recovery_policies
       |> Enum.map(&compensation_policy_evidence/1)
-      |> Enum.reduce(%{}, fn evidence, evidence_by_step ->
-        Map.update(
-          evidence_by_step,
-          evidence.step,
-          evidence,
-          &merge_compensation_policy(&1, evidence)
-        )
-      end)
+      |> compensation_policy_evidence_by_step()
 
-    snapshot
-    |> compensation_sources()
-    |> Enum.flat_map(&compensation_attempt_evidence/1)
-    |> Enum.reduce(policies_by_step, fn attempt_evidence, evidence_by_step ->
-      Map.update(
-        evidence_by_step,
-        attempt_evidence.step,
-        attempt_evidence,
-        &merge_compensation_evidence(&1, attempt_evidence)
-      )
+    attempts_by_step =
+      snapshot
+      |> compensation_sources()
+      |> Enum.flat_map(&compensation_attempt_evidence/1)
+      |> compensation_attempt_evidence_by_step()
+
+    policies_by_step
+    |> Map.merge(attempts_by_step, fn _step, policy, attempt ->
+      merge_compensation_evidence(policy, attempt)
     end)
     |> Map.values()
     |> Enum.sort_by(& &1.step)
+  end
+
+  defp compensation_policy_evidence_by_step(evidence) do
+    evidence
+    |> Enum.group_by(& &1.step)
+    |> Map.new(fn {step, step_evidence} ->
+      {step, merge_compensation_policies(step_evidence)}
+    end)
+  end
+
+  defp merge_compensation_policies([first | rest]) do
+    Enum.reduce(rest, first, &merge_compensation_policy(&2, &1))
+  end
+
+  defp compensation_attempt_evidence_by_step(evidence) do
+    evidence
+    |> Enum.group_by(& &1.step)
+    |> Map.new(fn {step, step_evidence} ->
+      {step, merge_compensation_attempts(step_evidence)}
+    end)
+  end
+
+  defp merge_compensation_attempts([first | rest]) do
+    Enum.reduce(rest, first, &merge_compensation_evidence(&2, &1))
   end
 
   defp compensation_policy_evidence(%RecoveryPolicy{} = policy) do
@@ -563,11 +579,15 @@ defmodule SquidSonar.Runs.RunDetail do
 
     snapshot.scheduled_attempts
     |> List.wrap()
-    |> Enum.with_index()
-    |> Enum.flat_map(fn {attempt, index} ->
-      deferred_continuation(attempt, snapshot, Enum.at(explanation_deferred, index))
+    |> Enum.zip(pad_deferred_explanations(explanation_deferred))
+    |> Enum.flat_map(fn {attempt, deferred_explanation} ->
+      deferred_continuation(attempt, snapshot, deferred_explanation)
     end)
     |> Enum.sort_by(&{&1.step, &1.runnable_key || ""})
+  end
+
+  defp pad_deferred_explanations(explanations) do
+    Stream.concat(explanations, Stream.repeatedly(fn -> nil end))
   end
 
   defp deferred_continuation(attempt, %Snapshot{} = snapshot, explanation_deferred)

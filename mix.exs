@@ -70,6 +70,8 @@ defmodule SquidSonar.MixProject do
       {:jason, "~> 1.4"},
       squidie_dep(),
       {:ex_slop, "~> 0.4.2", only: [:dev, :test], runtime: false},
+      {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
+      {:reach, "~> 2.7", only: [:dev, :test], runtime: false},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:excoveralls, "~> 0.18", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -86,16 +88,21 @@ defmodule SquidSonar.MixProject do
 
   defp aliases do
     [
-      precommit: [
-        "compile --warnings-as-errors",
-        "xref graph --format cycles --label compile-connected --fail-above 0",
-        "format --check-formatted",
-        "credo --strict",
-        "doctor",
-        "deps.audit",
-        "dialyzer",
-        "test"
-      ]
+      {:quality_gates, ["quality_gates.ex_dna", "quality_gates.reach"]},
+      {:"quality_gates.ex_dna", ["ex_dna --min-mass 40 --max-clones 0 --format console"]},
+      {:"quality_gates.reach", ["reach.check --smells --strict"]},
+      {:precommit,
+       [
+         "compile --warnings-as-errors",
+         "xref graph --format cycles --label compile-connected --fail-above 0",
+         "format --check-formatted",
+         "credo --strict",
+         "doctor",
+         "deps.audit",
+         "dialyzer",
+         "quality_gates",
+         "test"
+       ]}
     ]
   end
 end

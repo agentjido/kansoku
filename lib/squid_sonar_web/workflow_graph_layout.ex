@@ -160,10 +160,7 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   defp recovery_node?(_node), do: false
 
   defp compensation_node?(%{name: name}) do
-    case to_string(name) do
-      "compensate:" <> _origin -> true
-      _other -> false
-    end
+    match?("compensate:" <> _origin, to_string(name))
   end
 
   defp compensation_node?(_node), do: false
@@ -171,10 +168,7 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   defp evidence_node?(node), do: recovery_node?(node) or compensation_node?(node)
 
   defp has_callback?(compensation) do
-    case map_value(compensation, :callback) do
-      nil -> false
-      _callback -> true
-    end
+    not match?(nil, map_value(compensation, :callback))
   end
 
   defp positioned_nodes(nodes, positions) do
@@ -194,8 +188,7 @@ defmodule SquidSonarWeb.WorkflowGraphLayout do
   defp dimension(positions, field, item_size, gap, padding) do
     max_index =
       positions
-      |> Map.values()
-      |> Enum.map(&Map.fetch!(&1, field))
+      |> Enum.map(fn {_key, position} -> Map.fetch!(position, field) end)
       |> Enum.max(fn -> 1 end)
 
     padding * 2 + max_index * item_size + (max_index - 1) * gap
