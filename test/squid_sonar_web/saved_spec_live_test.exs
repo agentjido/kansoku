@@ -1,0 +1,207 @@
+defmodule SquidSonarWeb.SavedSpecLiveTest do
+  use ExUnit.Case, async: false
+
+  import Phoenix.Component, only: [assign: 3]
+  import Phoenix.LiveViewTest
+  import SquidSonar.ReadModelFixtures
+
+  alias Phoenix.LiveView.Socket
+  alias SquidSonar.FakeSquidieClient
+  alias SquidSonarWeb.SavedSpecLive
+
+  defmodule TestAction do
+    use Jido.Action,
+      name: "saved_spec_test_action",
+      description: "test action",
+      schema: [],
+      output_schema: []
+
+    @impl Jido.Action
+    def run(_params, _context), do: {:ok, %{}}
+  end
+
+  setup do
+    previous_client = Application.get_env(:squid_sonar, :squidie_client)
+    Application.put_env(:squid_sonar, :squidie_client, FakeSquidieClient)
+
+    on_exit(fn ->
+      if previous_client do
+        Application.put_env(:squid_sonar, :squidie_client, previous_client)
+      else
+        Application.delete_env(:squid_sonar, :squidie_client)
+      end
+    end)
+  end
+
+  test "renders validation, graph preview, raw JSON, and source diff for a saved draft" do
+    {:ok, socket} =
+      mount_saved_spec(
+        "checkout_draft",
+        checkout_draft: %{
+          title: "Checkout approval draft",
+          status: :approved,
+          editor_json: editor_json(),
+          source_spec: source_editor_json(),
+          spec: runtime_spec()
+        }
+      )
+
+    html =
+      socket.assigns
+      |> SavedSpecLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Checkout approval draft"
+    assert html =~ "Approved"
+    assert html =~ "Valid"
+    assert html =~ "Graph preview"
+    assert html =~ "load_order"
+    assert html =~ "capture_payment"
+    assert html =~ "Raw editor JSON"
+    assert html =~ "Raw runtime spec"
+    assert html =~ "Draft diff"
+    assert html =~ "nodes_added"
+  end
+
+  test "renders unknown and disabled action validation errors without leaking details" do
+    {:ok, unknown_socket} =
+      mount_saved_spec(
+        "unknown_action",
+        [unknown_action: %{title: "Unknown action", editor_json: editor_json("missing_action")}],
+        %{}
+      )
+
+    unknown_html =
+      unknown_socket.assigns
+      |> SavedSpecLive.render()
+      |> rendered_to_string()
+
+    assert unknown_html =~ "Invalid"
+    assert unknown_html =~ "steps.0.action"
+    assert unknown_html =~ "references unknown action key"
+    refute unknown_html =~ "do-not-render"
+
+    {:ok, disabled_socket} =
+      mount_saved_spec(
+        "disabled_action",
+        [disabled_action: %{title: "Disabled action", editor_json: editor_json("load_order")}],
+        %{"load_order" => %{module: __MODULE__, enabled?: false}}
+      )
+
+    disabled_html =
+      disabled_socket.assigns
+      |> SavedSpecLive.render()
+      |> rendered_to_string()
+
+    assert disabled_html =~ "references disabled action key"
+  end
+
+  test "starts an approved saved spec through the runtime spec start boundary" do
+    registry = %{
+      "load_order" => TestAction,
+      "capture_payment" => TestAction
+    }
+
+    spec = runtime_spec()
+    payload = %{"order_id" => "order-1"}
+    normalized_payload = %{order_id: "order-1"}
+
+    FakeSquidieClient.put_start_spec(fn started_spec, started_payload, opts ->
+      send(self(), {:start_spec, started_spec, started_payload, opts})
+
+      {:ok,
+       snapshot(:running,
+         run_id: "saved-spec-run",
+         workflow: "RuntimeCheckout",
+         reason: :attempt_visible
+       )}
+    end)
+
+    {:ok, socket} =
+      mount_saved_spec(
+        "checkout_draft",
+        [
+          checkout_draft: %{
+            title: "Checkout approval draft",
+            status: :approved,
+            editor_json: editor_json(),
+            spec: spec
+          }
+        ],
+        registry
+      )
+
+    {:noreply, started_socket} =
+      SavedSpecLive.handle_event(
+        "start_saved_spec",
+        %{"saved_spec_start" => %{"payload_json" => Jason.encode!(payload)}},
+        socket
+      )
+
+    assert_received {:start_spec, ^spec, ^normalized_payload, [action_registry: ^registry]}
+    assert {:live, :redirect, %{to: "/sonar/runs/saved-spec-run"}} = started_socket.redirected
+  end
+
+  defp mount_saved_spec(key, saved_specs, registry \\ nil) do
+    socket =
+      %Socket{}
+      |> assign(:prefix, "/sonar")
+      |> assign(:saved_specs, saved_specs)
+      |> assign(:action_registry, registry)
+
+    SavedSpecLive.mount(%{"key" => key}, %{}, socket)
+  end
+
+  defp runtime_spec do
+    %{
+      workflow: RuntimeCheckout,
+      triggers: [%{name: :manual, type: :manual, config: %{}, payload: []}],
+      payload: [%{name: :order_id, type: :string, opts: []}],
+      steps: [
+        %{name: :load_order, action: "load_order", module: :log, opts: [message: "load order"]},
+        %{
+          name: :capture_payment,
+          action: "capture_payment",
+          module: :log,
+          opts: [message: "capture payment"]
+        }
+      ],
+      transitions: [
+        %{from: :load_order, on: :ok, to: :capture_payment},
+        %{from: :capture_payment, on: :ok, to: :complete}
+      ],
+      retries: [],
+      entry_steps: [:load_order],
+      initial_step: :load_order,
+      entry_step: :load_order
+    }
+  end
+
+  defp source_editor_json do
+    %{
+      editor_json()
+      | "steps" => [%{"name" => "load_order", "action" => "load_order", "opts" => %{}}],
+        "transitions" => [%{"from" => "load_order", "on" => "ok", "to" => "complete"}]
+    }
+  end
+
+  defp editor_json(action \\ "load_order") do
+    %{
+      "workflow" => "RuntimeCheckout",
+      "triggers" => [%{"name" => "manual", "type" => "manual", "config" => %{}, "payload" => []}],
+      "payload" => [%{"name" => "order_id", "type" => "string", "opts" => []}],
+      "steps" => [
+        %{"name" => "load_order", "action" => action, "opts" => %{}},
+        %{"name" => "capture_payment", "action" => "capture_payment", "opts" => %{}}
+      ],
+      "transitions" => [
+        %{"from" => "load_order", "on" => "ok", "to" => "capture_payment"},
+        %{"from" => "capture_payment", "on" => "ok", "to" => "complete"}
+      ],
+      "retries" => [],
+      "entry_steps" => ["load_order"],
+      "initial_step" => "load_order",
+      "entry_step" => "load_order"
+    }
+  end
+end

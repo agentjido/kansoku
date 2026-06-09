@@ -1950,6 +1950,192 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   padding-top: var(--squid-sonar-space-4);
 }
 
+.squid-sonar-saved-specs-panel,
+.squid-sonar-saved-spec-section {
+  background: var(--squid-sonar-surface);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.squid-sonar-saved-specs-list {
+  display: grid;
+}
+
+.squid-sonar-saved-spec-row {
+  align-items: center;
+  border-top: 1px solid var(--squid-sonar-border);
+  color: var(--squid-sonar-text);
+  display: flex;
+  gap: var(--squid-sonar-space-4);
+  justify-content: space-between;
+  min-height: 58px;
+  padding: var(--squid-sonar-space-3) var(--squid-sonar-space-5);
+  text-decoration: none;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.squid-sonar-saved-spec-row:hover,
+.squid-sonar-saved-spec-row:focus-visible {
+  background: var(--squid-sonar-surface-muted);
+  color: var(--squid-sonar-accent);
+  outline: none;
+}
+
+.squid-sonar-saved-spec-row strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.squid-sonar-saved-spec-row small {
+  color: var(--squid-sonar-muted);
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+
+.squid-sonar-saved-spec-status,
+.squid-sonar-saved-spec-validation {
+  align-items: center;
+  background: var(--squid-sonar-surface-muted);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 999px;
+  color: var(--squid-sonar-muted);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 640;
+  line-height: 1;
+  min-height: 24px;
+  padding: 0 9px;
+}
+
+.squid-sonar-saved-spec-status.is-invalid,
+.squid-sonar-saved-spec-validation.is-invalid {
+  background: color-mix(in srgb, var(--squid-sonar-danger), transparent 88%);
+  border-color: color-mix(in srgb, var(--squid-sonar-danger), transparent 55%);
+  color: var(--squid-sonar-danger);
+}
+
+.squid-sonar-saved-spec-detail {
+  display: grid;
+  gap: var(--squid-sonar-space-4);
+  min-width: 0;
+}
+
+.squid-sonar-saved-spec-hero {
+  align-items: flex-start;
+  background: var(--squid-sonar-surface);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 8px;
+  display: flex;
+  gap: var(--squid-sonar-space-4);
+  justify-content: space-between;
+  padding: var(--squid-sonar-space-5);
+}
+
+.squid-sonar-saved-spec-hero h2,
+.squid-sonar-saved-spec-section h3 {
+  font-size: 16px;
+  font-weight: 620;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.squid-sonar-saved-spec-hero p:not(.squid-sonar-eyebrow),
+.squid-sonar-saved-spec-section p {
+  color: var(--squid-sonar-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: var(--squid-sonar-space-1) 0 0;
+}
+
+.squid-sonar-saved-spec-badges {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--squid-sonar-space-2);
+  justify-content: flex-end;
+}
+
+.squid-sonar-saved-spec-grid {
+  display: grid;
+  gap: var(--squid-sonar-space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.squid-sonar-saved-spec-section {
+  padding-bottom: var(--squid-sonar-space-4);
+}
+
+.squid-sonar-saved-spec-section > p,
+.squid-sonar-saved-spec-section > form,
+.squid-sonar-validation-errors,
+.squid-sonar-graph-preview,
+.squid-sonar-json-block {
+  margin-left: var(--squid-sonar-space-5);
+  margin-right: var(--squid-sonar-space-5);
+}
+
+.squid-sonar-validation-errors {
+  display: grid;
+  gap: var(--squid-sonar-space-2);
+  list-style: none;
+  margin-bottom: 0;
+  margin-top: var(--squid-sonar-space-3);
+  padding: 0;
+}
+
+.squid-sonar-validation-errors li {
+  background: var(--squid-sonar-surface-muted);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 6px;
+  display: grid;
+  gap: 3px;
+  padding: var(--squid-sonar-space-3);
+}
+
+.squid-sonar-validation-errors strong {
+  color: var(--squid-sonar-danger);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.squid-sonar-validation-errors span {
+  color: var(--squid-sonar-muted);
+  font-size: 13px;
+}
+
+.squid-sonar-graph-preview {
+  color: var(--squid-sonar-muted);
+  display: flex;
+  gap: var(--squid-sonar-space-3);
+  margin-top: var(--squid-sonar-space-3);
+}
+
+.squid-sonar-json-block {
+  background: var(--squid-sonar-surface-muted);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 6px;
+  color: var(--squid-sonar-text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  margin-bottom: 0;
+  margin-top: var(--squid-sonar-space-3);
+  max-height: 420px;
+  overflow: auto;
+  padding: 14px;
+  tab-size: 2;
+  white-space: pre;
+}
+
 @keyframes squid-sonar-runtime-spec-backdrop-in {
   from {
     opacity: 0;
@@ -2030,7 +2216,8 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   }
 
   .squid-sonar-detail-grid,
-  .squid-sonar-detail-columns {
+  .squid-sonar-detail-columns,
+  .squid-sonar-saved-spec-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2046,6 +2233,14 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   .squid-sonar-workflow-panel-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .squid-sonar-saved-spec-hero {
+    flex-direction: column;
+  }
+
+  .squid-sonar-saved-spec-badges {
+    justify-content: flex-start;
   }
 
   .squid-sonar-workflow-panel-actions,
@@ -2100,6 +2295,12 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   .squid-sonar-panel-tools {
     align-items: center;
     justify-content: flex-start;
+  }
+
+  .squid-sonar-saved-spec-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--squid-sonar-space-2);
   }
 
   .squid-sonar-pagination {

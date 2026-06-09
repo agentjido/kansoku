@@ -219,6 +219,36 @@ Runtime-spec starts are activation-only in SquidSonar. Squidie persists enough
 definition data for inspection, but replay of runtime-spec runs is not
 supported. DSL workflow module entries use Squidie's normal workflow start path.
 
+`saved_specs` exposes host-owned workflow spec drafts under
+`/sonar/saved-specs/:key` and adds a saved-spec list to the dashboard. Pass a
+keyword list or map of stable keys to draft metadata, or an MFA tuple that
+receives the current `Plug.Conn`:
+
+```elixir
+defmodule MyAppWeb.SquidSonarRuntimeSpec do
+  def saved_specs(_conn) do
+    [
+      checkout_draft: %{
+        title: "Checkout approval draft",
+        status: :approved,
+        editor_json: checkout_editor_json(),
+        source_spec: current_checkout_editor_json(),
+        spec: approved_checkout_runtime_spec()
+      }
+    ]
+  end
+end
+```
+
+The detail page validates `editor_json`, shows structured validation errors,
+renders the preview graph and raw JSON, and shows a diff when `source_spec` is
+present. `status: :approved` plus `spec` enables the start form, which reuses
+the same runtime-spec start boundary as the dashboard drawer. The host app still
+owns persistence, approval policy, action registry lookup, activation rules, and
+any conversion from editor JSON into an executable runtime spec. SquidSonar does
+not save drafts, approve drafts, or convert unapproved browser-submitted JSON
+into runtime definitions.
+
 ## Security
 
 SquidSonar does not ship its own authentication layer. Protect the mounted route

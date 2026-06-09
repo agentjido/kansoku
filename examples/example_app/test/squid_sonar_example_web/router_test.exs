@@ -6,6 +6,7 @@ defmodule SquidSonarExampleWeb.RouterTest do
 
     assert Enum.any?(routes, &(&1.path == "/" and &1.plug == SquidSonarExampleWeb.PageController))
     assert Enum.any?(routes, &(&1.path == "/sonar" and &1.plug == Phoenix.LiveView.Plug))
+    assert Enum.any?(routes, &(&1.path == "/sonar/saved-specs/:key"))
 
     refute Enum.any?(routes, &(&1.path == "/sonar/runtime-specs/new"))
 
@@ -44,12 +45,26 @@ defmodule SquidSonarExampleWeb.RouterTest do
               _control_actor,
               runtime_spec,
               action_registry,
-              runtime_specs
+              runtime_options
             ]} =
              live_opts.extra.session
 
     assert runtime_spec == nil
     assert action_registry == {SquidSonarExample.RuntimeSpecDemo, :action_registry, []}
-    assert runtime_specs == {SquidSonarExample.RuntimeSpecDemo, :runtime_specs, []}
+
+    assert runtime_options == %{
+             saved_specs: {SquidSonarExample.RuntimeSpecDemo, :saved_specs, []},
+             runtime_specs: {SquidSonarExample.RuntimeSpecDemo, :runtime_specs, []}
+           }
+  end
+
+  test "seeds an approved saved runtime spec draft" do
+    saved_specs = SquidSonarExample.RuntimeSpecDemo.saved_specs(%Plug.Conn{})
+    saved_spec = Keyword.fetch!(saved_specs, :checkout_draft)
+
+    assert saved_spec.status == :approved
+    assert saved_spec.editor_json["workflow"] =~ "CompletedCheckout"
+    assert is_map(saved_spec.source_spec)
+    assert is_map(saved_spec.spec)
   end
 end

@@ -11,6 +11,7 @@ defmodule SquidSonarExample.RuntimeSpecDemo do
   alias SquidSonarExample.Workflows.PausedCheckout
   alias SquidSonarExample.Workflows.RetryingCheckout
   alias SquidSonarExample.Workflows.SagaCheckout
+  alias Squidie.Workflow.EditorSpec
 
   @spec runtime_specs(Plug.Conn.t()) :: keyword(module())
   def runtime_specs(_conn) do
@@ -64,6 +65,22 @@ defmodule SquidSonarExample.RuntimeSpecDemo do
     }
   end
 
+  @spec saved_specs(Plug.Conn.t()) :: keyword(map())
+  def saved_specs(conn) do
+    runtime_spec = spec(conn)
+
+    [
+      checkout_draft: %{
+        title: "Runtime checkout draft",
+        description: "Approved runtime-authored checkout spec owned by the host app.",
+        status: :approved,
+        editor_json: EditorSpec.to_map(runtime_spec),
+        source_spec: EditorSpec.to_map(source_spec(conn)),
+        spec: runtime_spec
+      }
+    ]
+  end
+
   @spec action_registry(Plug.Conn.t()) :: map()
   def action_registry(_conn) do
     %{
@@ -77,5 +94,21 @@ defmodule SquidSonarExample.RuntimeSpecDemo do
       %{name: :order_id, type: :string, opts: []},
       %{name: :customer_id, type: :string, opts: []}
     ]
+  end
+
+  defp source_spec(conn) do
+    runtime_spec = spec(conn)
+
+    %{
+      runtime_spec
+      | steps: [
+          %{
+            name: :load_order,
+            action: "load_order",
+            opts: [output: :order]
+          }
+        ],
+        transitions: [%{from: :load_order, on: :ok, to: :complete}]
+    }
   end
 end

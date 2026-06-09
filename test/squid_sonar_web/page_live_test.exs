@@ -564,6 +564,38 @@ defmodule SquidSonarWeb.PageLiveTest do
     refute html =~ "squid-sonar-runtime-spec-drawer"
   end
 
+  test "lists host-provided saved workflow spec drafts on the dashboard" do
+    FakeSquidieClient.put_list_runs({:ok, []})
+
+    {:ok, socket} =
+      mount_with_saved_specs(
+        checkout_draft: %{
+          title: "Checkout approval draft",
+          status: :approved,
+          editor_json: editor_json()
+        }
+      )
+
+    html =
+      socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Saved workflow specs"
+    assert html =~ "Checkout approval draft"
+    assert html =~ "Approved"
+    assert html =~ ~s(href="/sonar/saved-specs/checkout_draft")
+  end
+
+  test "does not render saved workflow spec drafts without host configuration" do
+    FakeSquidieClient.put_list_runs({:ok, []})
+
+    html = render_page()
+
+    refute html =~ "Saved workflow specs"
+    refute html =~ "/saved-specs/"
+  end
+
   test "refreshes the dashboard while preserving active filters" do
     FakeSquidieClient.put_list_runs(fn filters, _opts ->
       send(self(), {:list_filters, filters})
@@ -625,6 +657,16 @@ defmodule SquidSonarWeb.PageLiveTest do
     PageLive.mount(%{}, %{}, socket)
   end
 
+  defp mount_with_saved_specs(saved_specs, registry \\ nil) do
+    socket =
+      %Socket{}
+      |> assign(:prefix, "/sonar")
+      |> assign(:saved_specs, saved_specs)
+      |> assign(:action_registry, registry)
+
+    PageLive.mount(%{}, %{}, socket)
+  end
+
   defp summary(status, workflow_name, queue, attrs \\ []) do
     %Summary{
       run_id: "#{workflow_name}-run",
@@ -665,6 +707,20 @@ defmodule SquidSonarWeb.PageLiveTest do
           %{name: :invoice_id, type: :string, opts: []},
           %{name: :retry_count, type: :integer, opts: []}
         ]
+    }
+  end
+
+  defp editor_json do
+    %{
+      "workflow" => "RuntimeCheckout",
+      "triggers" => [%{"name" => "manual", "type" => "manual", "config" => %{}, "payload" => []}],
+      "payload" => [%{"name" => "order_id", "type" => "string", "opts" => []}],
+      "steps" => [%{"name" => "load_order", "action" => "load_order", "opts" => %{}}],
+      "transitions" => [%{"from" => "load_order", "on" => "ok", "to" => "complete"}],
+      "retries" => [],
+      "entry_steps" => ["load_order"],
+      "initial_step" => "load_order",
+      "entry_step" => "load_order"
     }
   end
 end

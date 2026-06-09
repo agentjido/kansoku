@@ -7,6 +7,8 @@ defmodule SquidSonarWeb.PageLive do
 
   alias SquidSonar.Dashboard
   alias SquidSonar.Runs
+  alias SquidSonar.SavedSpecs
+  alias SquidSonar.ValidationErrors
 
   @dashboard_refresh_interval_ms 2_000
   @default_payload_json "{\n}"
@@ -18,10 +20,12 @@ defmodule SquidSonarWeb.PageLive do
       |> assign_new(:prefix, fn -> "" end)
       |> assign_new(:runtime_spec, fn -> nil end)
       |> assign_new(:runtime_specs, fn -> nil end)
+      |> assign_new(:saved_specs, fn -> nil end)
       |> assign_new(:action_registry, fn -> nil end)
       |> assign(:page_title, "SquidSonar Runtime")
       |> assign(:theme, :system)
       |> assign_runtime_spec_start()
+      |> assign_saved_specs()
       |> assign_dashboard()
       |> schedule_dashboard_refresh()
 
@@ -217,6 +221,7 @@ defmodule SquidSonarWeb.PageLive do
               </aside>
 
               <div class="squid-sonar-main-column">
+                <.saved_specs_panel saved_specs={@saved_spec_catalog} prefix={@prefix} />
                 <.runs_panel dashboard={@dashboard} prefix={@prefix} />
               </div>
             </section>
@@ -332,6 +337,48 @@ defmodule SquidSonarWeb.PageLive do
       runtime_spec_payload_json: selected_runtime_spec_payload_json(catalog, selected_key),
       runtime_spec_start_error: nil
     )
+  end
+
+  defp assign_saved_specs(socket) do
+    assign(
+      socket,
+      :saved_spec_catalog,
+      SavedSpecs.list(socket.assigns.saved_specs, socket.assigns.action_registry)
+    )
+  end
+
+  defp saved_specs_panel(%{saved_specs: []} = assigns), do: ~H""
+
+  defp saved_specs_panel(assigns) do
+    ~H"""
+    <section class="squid-sonar-saved-specs-panel" aria-label="Saved workflow specs">
+      <div class="squid-sonar-panel-heading">
+        <div>
+          <p class="squid-sonar-eyebrow">Host drafts</p>
+          <h2>Saved workflow specs</h2>
+        </div>
+      </div>
+
+      <div class="squid-sonar-saved-specs-list">
+        <.link
+          :for={saved_spec <- @saved_specs}
+          navigate={"#{@prefix}/saved-specs/#{saved_spec.key}"}
+          class="squid-sonar-saved-spec-row"
+        >
+          <span>
+            <strong>{saved_spec.title}</strong>
+            <small :if={saved_spec.description}>{saved_spec.description}</small>
+          </span>
+          <span class={[
+            "squid-sonar-saved-spec-status",
+            saved_spec.validation.status == :invalid && "is-invalid"
+          ]}>
+            {saved_spec.status_label}
+          </span>
+        </.link>
+      </div>
+    </section>
+    """
   end
 
   defp assign_dashboard(socket, opts \\ []) do
@@ -554,34 +601,14 @@ defmodule SquidSonarWeb.PageLive do
     "Payload JSON must decode to an object."
   end
 
-  defp format_start_error({:invalid_workflow_spec, errors}), do: format_validation_errors(errors)
+  defp format_start_error({:invalid_workflow_spec, errors}), do: ValidationErrors.format(errors)
 
   defp format_start_error({:invalid_workflow_editor_spec, errors}),
-    do: format_validation_errors(errors)
+    do: ValidationErrors.format(errors)
 
   defp format_start_error({:invalid_payload, :expected_map}), do: "Payload must be a JSON object."
   defp format_start_error(:unknown_runtime_spec), do: "Selected workflow is not configured."
   defp format_start_error(_reason), do: "Workflow start failed."
-
-  defp format_validation_errors(errors) when is_list(errors) do
-    errors
-    |> Enum.map(&format_validation_error/1)
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.join("; ")
-  end
-
-  defp format_validation_errors(_errors), do: "Runtime spec validation failed."
-
-  defp format_validation_error(%{path: path, message: message}) when is_list(path) do
-    "#{format_path(path)}: #{message}"
-  end
-
-  defp format_validation_error(%{message: message}) when is_binary(message), do: message
-  defp format_validation_error(_error), do: ""
-
-  defp format_path(path) do
-    Enum.map_join(path, ".", &to_string/1)
-  end
 
   defp normalize_theme("system"), do: :system
   defp normalize_theme("light"), do: :light

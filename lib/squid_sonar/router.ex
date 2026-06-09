@@ -56,6 +56,10 @@ defmodule SquidSonar.Router do
     * `:action_registry` - host-owned action registry passed to
       `Squidie.start_spec/3` for runtime spec entries. Pass a map, keyword list,
       or MFA tuple.
+    * `:saved_specs` - host-owned saved workflow spec drafts surfaced by
+      SquidSonar. Pass a keyword list or map of stable keys to draft metadata,
+      or an MFA tuple `{module, function, args}`. The host owns persistence,
+      approval, action registry policy, and activation decisions.
   """
   defmacro squid_sonar(path, opts \\ []) do
     quote bind_quoted: [path: path, opts: opts] do
@@ -75,6 +79,7 @@ defmodule SquidSonar.Router do
             as: :squid_sonar_live_view
 
           live "/", SquidSonarWeb.PageLive, :index, route_opts
+          live "/saved-specs/:key", SquidSonarWeb.SavedSpecLive, :show, route_opts
           live "/runs/:id", SquidSonarWeb.RunLive, :show, route_opts
         end
       end
@@ -97,7 +102,10 @@ defmodule SquidSonar.Router do
       Keyword.get(opts, :control_actor, @default_control_actor),
       Keyword.get(opts, :runtime_spec),
       Keyword.get(opts, :action_registry),
-      Keyword.get(opts, :runtime_specs)
+      %{
+        saved_specs: Keyword.get(opts, :saved_specs),
+        runtime_specs: Keyword.get(opts, :runtime_specs)
+      }
     ]
 
     session_opts = [
@@ -116,7 +124,16 @@ defmodule SquidSonar.Router do
   """
   @spec __session__(Plug.Conn.t() | map(), String.t(), String.t(), String.t()) :: map()
   def __session__(_conn, prefix, live_path, live_transport) do
-    __session__(%{}, prefix, live_path, live_transport, @default_control_actor, nil, nil, nil)
+    __session__(
+      %{},
+      prefix,
+      live_path,
+      live_transport,
+      @default_control_actor,
+      nil,
+      nil,
+      nil
+    )
   end
 
   @doc """
@@ -181,14 +198,18 @@ defmodule SquidSonar.Router do
         control_actor,
         runtime_spec,
         action_registry,
-        runtime_specs
+        runtime_options
       ) do
+    {saved_specs_config, runtime_specs_config} = runtime_session_options(runtime_options)
+
     runtime_spec = resolve_session_value(conn, runtime_spec)
     action_registry = resolve_session_value(conn, action_registry)
-    runtime_specs = resolve_session_value(conn, runtime_specs)
+    saved_specs = resolve_session_value(conn, saved_specs_config)
+    runtime_specs = resolve_session_value(conn, runtime_specs_config)
 
     validate_runtime_spec!(:runtime_spec, runtime_spec)
     validate_action_registry!(:action_registry, action_registry)
+    validate_saved_specs!(:saved_specs, saved_specs)
     validate_runtime_specs!(:runtime_specs, runtime_specs)
 
     %{
@@ -198,6 +219,7 @@ defmodule SquidSonar.Router do
       "control_actor" => resolve_control_actor(conn, control_actor),
       "runtime_spec" => runtime_spec,
       "action_registry" => action_registry,
+      "saved_specs" => saved_specs,
       "runtime_specs" => runtime_specs
     }
   end
@@ -252,6 +274,10 @@ defmodule SquidSonar.Router do
     validate_runtime_specs!(:runtime_specs, specs, allow_mfa?: true)
   end
 
+  defp validate_opt!({:saved_specs, specs}) do
+    validate_saved_specs!(:saved_specs, specs, allow_mfa?: true)
+  end
+
   defp validate_opt!({:action_registry, registry}) do
     validate_action_registry!(:action_registry, registry, allow_mfa?: true)
   end
@@ -296,6 +322,19 @@ defmodule SquidSonar.Router do
     end
   end
 
+  defp validate_saved_specs!(name, specs, opts \\ []) do
+    allow_mfa? = Keyword.get(opts, :allow_mfa?, false)
+    expected = "a keyword list or map#{mfa_suffix(allow_mfa?)}"
+
+    unless is_nil(specs) or is_map(specs) or Keyword.keyword?(specs) or
+             (allow_mfa? and valid_mfa_spec?(specs)) do
+      raise ArgumentError, """
+      invalid #{inspect(name)}, expected #{expected},
+      got #{inspect(specs)}
+      """
+    end
+  end
+
   defp validate_action_registry!(name, registry, opts \\ []) do
     allow_mfa? = Keyword.get(opts, :allow_mfa?, false)
     expected = "a map or keyword list#{mfa_suffix(allow_mfa?)}"
@@ -311,6 +350,20 @@ defmodule SquidSonar.Router do
 
   defp mfa_suffix(true), do: ", or {module, function, args} tuple"
   defp mfa_suffix(false), do: ""
+
+  defp runtime_session_options(%{} = runtime_options) do
+    if Map.has_key?(runtime_options, :saved_specs) or
+         Map.has_key?(runtime_options, :runtime_specs) do
+      {
+        Map.get(runtime_options, :saved_specs),
+        Map.get(runtime_options, :runtime_specs)
+      }
+    else
+      {nil, runtime_options}
+    end
+  end
+
+  defp runtime_session_options(runtime_specs), do: {nil, runtime_specs}
 
   defp resolve_control_actor(conn, {module, function, args}) do
     conn
