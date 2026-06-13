@@ -48,12 +48,12 @@ defmodule SquidSonarWeb.SavedSpecLive do
 
       %{startable?: false} ->
         {:noreply,
-         assign(socket, :saved_spec_start_error, "Saved workflow spec is not approved.")}
+         assign(socket, :saved_spec_start_error, "Saved workflow spec is not startable.")}
 
       {:error, reason} ->
         {:noreply,
          socket
-         |> assign(:saved_spec_payload_json, safe_payload_json(socket, reason))
+         |> assign(:saved_spec_payload_json, safe_payload_json(socket, payload_json, reason))
          |> assign(:saved_spec_start_error, format_start_error(reason))}
     end
   end
@@ -294,14 +294,14 @@ defmodule SquidSonarWeb.SavedSpecLive do
     end
   end
 
-  defp safe_payload_json(socket, :invalid_payload_json),
+  defp safe_payload_json(socket, _payload_json, :invalid_payload_json),
     do: SavedSpecs.payload_json(socket.assigns.saved_spec)
 
-  defp safe_payload_json(socket, {:invalid_payload_json, _reason}) do
+  defp safe_payload_json(socket, _payload_json, {:invalid_payload_json, _reason}) do
     SavedSpecs.payload_json(socket.assigns.saved_spec)
   end
 
-  defp safe_payload_json(socket, _reason), do: socket.assigns.saved_spec_payload_json
+  defp safe_payload_json(_socket, payload_json, _reason), do: payload_json
 
   defp validation_label(%{status: :valid}), do: "Valid"
   defp validation_label(%{status: :invalid}), do: "Invalid"

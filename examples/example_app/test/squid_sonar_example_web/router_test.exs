@@ -6,7 +6,11 @@ defmodule SquidSonarExampleWeb.RouterTest do
 
     assert Enum.any?(routes, &(&1.path == "/" and &1.plug == SquidSonarExampleWeb.PageController))
     assert Enum.any?(routes, &(&1.path == "/sonar" and &1.plug == Phoenix.LiveView.Plug))
-    assert Enum.any?(routes, &(&1.path == "/sonar/saved-specs/:key"))
+
+    assert Enum.any?(
+             routes,
+             &(&1.path == "/sonar/saved-specs/:key" and &1.plug == Phoenix.LiveView.Plug)
+           )
 
     refute Enum.any?(routes, &(&1.path == "/sonar/runtime-specs/new"))
 

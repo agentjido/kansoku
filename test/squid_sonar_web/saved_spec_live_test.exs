@@ -142,6 +142,75 @@ defmodule SquidSonarWeb.SavedSpecLiveTest do
     assert {:live, :redirect, %{to: "/sonar/runs/saved-spec-run"}} = started_socket.redirected
   end
 
+  test "preserves edited payload JSON when runtime spec start fails" do
+    registry = %{
+      "load_order" => TestAction,
+      "capture_payment" => TestAction
+    }
+
+    spec = runtime_spec()
+    edited_payload_json = Jason.encode!(%{"order_id" => "retry-order"}, pretty: true)
+
+    FakeSquidieClient.put_start_spec(fn started_spec, started_payload, opts ->
+      send(self(), {:start_spec, started_spec, started_payload, opts})
+
+      {:error, :failed_to_start}
+    end)
+
+    {:ok, socket} =
+      mount_saved_spec(
+        "checkout_runtime_spec",
+        [
+          checkout_runtime_spec: %{
+            title: "Checkout runtime spec",
+            status: :approved,
+            editor_json: editor_json(),
+            spec: spec
+          }
+        ],
+        registry
+      )
+
+    {:noreply, error_socket} =
+      SavedSpecLive.handle_event(
+        "start_saved_spec",
+        %{"saved_spec_start" => %{"payload_json" => edited_payload_json}},
+        socket
+      )
+
+    assert_received {:start_spec, ^spec, %{order_id: "retry-order"}, [action_registry: ^registry]}
+    assert error_socket.assigns.saved_spec_payload_json == edited_payload_json
+
+    html =
+      error_socket.assigns
+      |> SavedSpecLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Workflow start failed."
+    assert html =~ "retry-order"
+  end
+
+  test "uses a neutral error when a saved spec is not startable" do
+    {:ok, socket} =
+      mount_saved_spec(
+        "checkout_runtime_spec",
+        checkout_runtime_spec: %{
+          title: "Checkout runtime spec",
+          status: :approved,
+          editor_json: editor_json()
+        }
+      )
+
+    {:noreply, error_socket} =
+      SavedSpecLive.handle_event(
+        "start_saved_spec",
+        %{"saved_spec_start" => %{"payload_json" => Jason.encode!(%{"order_id" => "order-1"})}},
+        socket
+      )
+
+    assert error_socket.assigns.saved_spec_start_error == "Saved workflow spec is not startable."
+  end
+
   test "sets theme from the saved spec detail page" do
     {:ok, socket} =
       mount_saved_spec(

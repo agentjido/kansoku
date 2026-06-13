@@ -44,11 +44,11 @@ defmodule SquidSonar.SavedSpecs do
   @spec get(term(), String.t(), term()) :: {:ok, saved_spec()} | {:error, :not_found}
   def get(saved_specs, key, action_registry \\ nil) when is_binary(key) do
     saved_specs
-    |> list(action_registry)
-    |> Enum.find(&(&1.key == key))
+    |> entries()
+    |> Enum.find(fn {entry_key, _attrs} -> to_string(entry_key) == key end)
     |> case do
       nil -> {:error, :not_found}
-      saved_spec -> {:ok, saved_spec}
+      entry -> built_result(build(entry, action_registry))
     end
   end
 
@@ -109,6 +109,9 @@ defmodule SquidSonar.SavedSpecs do
   end
 
   defp build({_key, _attrs}, _action_registry), do: nil
+
+  defp built_result(nil), do: {:error, :not_found}
+  defp built_result(saved_spec), do: {:ok, saved_spec}
 
   defp title(key, attrs) do
     field(attrs, :title, "title") ||
