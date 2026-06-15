@@ -41,6 +41,11 @@ defmodule SquidSonar.RouterTest do
     assert Enum.any?(routes, &(&1.path == "/sonar" and &1.plug == Phoenix.LiveView.Plug))
     assert Enum.any?(routes, &(&1.path == "/sonar/runs/:id" and &1.plug == Phoenix.LiveView.Plug))
 
+    assert Enum.any?(
+             routes,
+             &(&1.path == "/sonar/saved-specs/:key" and &1.plug == Phoenix.LiveView.Plug)
+           )
+
     refute Enum.any?(routes, &(&1.path == "/sonar/runtime-specs/new"))
   end
 
@@ -61,7 +66,7 @@ defmodule SquidSonar.RouterTest do
              SquidSonar.Router.default_control_actor(),
              nil,
              nil,
-             nil
+             %{saved_specs: nil, runtime_specs: nil}
            ]
   end
 
@@ -84,7 +89,7 @@ defmodule SquidSonar.RouterTest do
              SquidSonar.Router.default_control_actor(),
              nil,
              nil,
-             nil
+             %{saved_specs: nil, runtime_specs: nil}
            ]
   end
 
@@ -97,7 +102,15 @@ defmodule SquidSonar.RouterTest do
     assert {:session, {SquidSonar.Router, :__session__, session_args}} =
              List.keyfind(session_opts, :session, 0)
 
-    assert session_args == ["/sonar", "/live", "websocket", actor, nil, nil, nil]
+    assert session_args == [
+             "/sonar",
+             "/live",
+             "websocket",
+             actor,
+             nil,
+             nil,
+             %{saved_specs: nil, runtime_specs: nil}
+           ]
   end
 
   test "supports runtime specs catalog and action registry start boundaries" do
@@ -121,7 +134,7 @@ defmodule SquidSonar.RouterTest do
              SquidSonar.Router.default_control_actor(),
              nil,
              registry,
-             specs
+             %{saved_specs: nil, runtime_specs: specs}
            ]
   end
 
@@ -146,7 +159,39 @@ defmodule SquidSonar.RouterTest do
              SquidSonar.Router.default_control_actor(),
              spec,
              registry,
-             nil
+             %{saved_specs: nil, runtime_specs: nil}
+           ]
+  end
+
+  test "supports saved spec catalog and action registry boundaries" do
+    saved_specs = [
+      checkout_runtime_spec: %{
+        title: "Checkout runtime spec",
+        status: :approved,
+        editor_json: %{"workflow" => "RuntimeCheckout"}
+      }
+    ]
+
+    registry = %{"load_order" => __MODULE__}
+
+    assert {:squid_sonar, session_opts, [as: :squid_sonar]} =
+             SquidSonar.Router.__options__(
+               "/sonar",
+               saved_specs: saved_specs,
+               action_registry: registry
+             )
+
+    assert {:session, {SquidSonar.Router, :__session__, session_args}} =
+             List.keyfind(session_opts, :session, 0)
+
+    assert session_args == [
+             "/sonar",
+             "/live",
+             "websocket",
+             SquidSonar.Router.default_control_actor(),
+             nil,
+             registry,
+             %{saved_specs: saved_specs, runtime_specs: nil}
            ]
   end
 
@@ -170,6 +215,7 @@ defmodule SquidSonar.RouterTest do
              "control_actor" => %{"id" => "squid_sonar"},
              "runtime_spec" => nil,
              "action_registry" => nil,
+             "saved_specs" => nil,
              "runtime_specs" => nil
            } = SquidSonar.Router.__session__(%{}, "/sonar", "/live", "websocket")
   end
@@ -189,11 +235,15 @@ defmodule SquidSonar.RouterTest do
                {__MODULE__, :control_actor_from_conn, []},
                {__MODULE__, :runtime_spec_from_conn, []},
                {__MODULE__, :action_registry_from_conn, []},
-               {__MODULE__, :runtime_specs_from_conn, []}
+               %{
+                 saved_specs: {__MODULE__, :saved_specs_from_conn, []},
+                 runtime_specs: {__MODULE__, :runtime_specs_from_conn, []}
+               }
              )
 
     assert session["runtime_spec"] == %{workflow: RuntimeCheckout}
     assert session["action_registry"] == %{"load_order" => __MODULE__}
+    assert session["saved_specs"] == [checkout_runtime_spec: %{title: "Checkout runtime spec"}]
     assert session["runtime_specs"] == [checkout: %{workflow: RuntimeCheckout}]
   end
 
@@ -238,6 +288,19 @@ defmodule SquidSonar.RouterTest do
         {__MODULE__, :invalid_runtime_specs_from_conn, []}
       )
     end
+
+    assert_raise ArgumentError, ~r/invalid :saved_specs/, fn ->
+      SquidSonar.Router.__session__(
+        conn,
+        "/sonar",
+        "/live",
+        "websocket",
+        SquidSonar.Router.default_control_actor(),
+        nil,
+        nil,
+        %{saved_specs: {__MODULE__, :invalid_saved_specs_from_conn, []}}
+      )
+    end
   end
 
   @spec control_actor_from_conn(Plug.Conn.t()) :: map()
@@ -254,6 +317,11 @@ defmodule SquidSonar.RouterTest do
   @spec runtime_specs_from_conn(Plug.Conn.t()) :: keyword(map())
   def runtime_specs_from_conn(%Plug.Conn{}), do: [checkout: %{workflow: RuntimeCheckout}]
 
+  @spec saved_specs_from_conn(Plug.Conn.t()) :: keyword(map())
+  def saved_specs_from_conn(%Plug.Conn{}) do
+    [checkout_runtime_spec: %{title: "Checkout runtime spec"}]
+  end
+
   @spec invalid_runtime_spec_from_conn(Plug.Conn.t()) :: term()
   def invalid_runtime_spec_from_conn(%Plug.Conn{}), do: :not_a_spec
 
@@ -262,4 +330,7 @@ defmodule SquidSonar.RouterTest do
 
   @spec invalid_runtime_specs_from_conn(Plug.Conn.t()) :: term()
   def invalid_runtime_specs_from_conn(%Plug.Conn{}), do: [%{workflow: RuntimeCheckout}]
+
+  @spec invalid_saved_specs_from_conn(Plug.Conn.t()) :: term()
+  def invalid_saved_specs_from_conn(%Plug.Conn{}), do: [%{title: "not keyed"}]
 end
