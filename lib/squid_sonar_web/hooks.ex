@@ -20,6 +20,7 @@ defmodule SquidSonarWeb.Hooks do
       )
       |> assign(:runtime_spec, Map.get(session, "runtime_spec"))
       |> assign(:runtime_specs, Map.get(session, "runtime_specs"))
+      |> assign(:saved_specs, Map.get(session, "saved_specs"))
       |> assign(:action_registry, Map.get(session, "action_registry"))
 
     {:cont, socket}
