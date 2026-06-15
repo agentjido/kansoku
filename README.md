@@ -219,6 +219,49 @@ Runtime-spec starts are activation-only in SquidSonar. Squidie persists enough
 definition data for inspection, but replay of runtime-spec runs is not
 supported. DSL workflow module entries use Squidie's normal workflow start path.
 
+`saved_specs` is the read-only inspection surface for host-provided workflow
+spec records. It complements runtime execution: `runtime_specs` answers "what
+can this operator start now?", while `saved_specs` answers "what spec did the
+host save, is it valid, what changed from the source spec, and is it approved to
+start?" This matters for runtime-authored workflows, visual-editor JSON, or
+host approval flows where the spec exists outside compiled Elixir modules.
+
+SquidSonar does not create saved specs. The host app can provide records derived
+from an Elixir DSL workflow, persisted editor JSON, a stored runtime-authored
+spec, or an approval workflow that has already converted editor JSON into an
+executable runtime spec. SquidSonar only lists, validates, previews, diffs, and
+optionally starts approved records.
+
+Mounting `saved_specs` exposes those records under `/sonar/saved-specs/:key` and
+adds a saved-spec list to the dashboard. Pass a keyword list or map of stable
+keys to saved-spec metadata, or an MFA tuple that receives the current
+`Plug.Conn`:
+
+```elixir
+defmodule MyAppWeb.SquidSonarRuntimeSpec do
+  def saved_specs(_conn) do
+    [
+      checkout_runtime_spec: %{
+        title: "Checkout runtime spec",
+        status: :approved,
+        editor_json: checkout_editor_json(),
+        source_spec: current_checkout_editor_json(),
+        spec: approved_checkout_runtime_spec()
+      }
+    ]
+  end
+end
+```
+
+The detail page validates `editor_json`, shows structured validation errors,
+renders the preview graph and raw JSON, and shows a diff when `source_spec` is
+present. `status: :approved` plus `spec` enables the start form, which reuses
+the same runtime-spec start boundary as the dashboard drawer. The host app still
+owns persistence, approval policy, action registry lookup, activation rules, and
+any conversion from editor JSON into an executable runtime spec. SquidSonar does
+not save specs, approve specs, or convert unapproved browser-submitted JSON
+into runtime definitions.
+
 ## Security
 
 SquidSonar does not ship its own authentication layer. Protect the mounted route
