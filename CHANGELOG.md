@@ -2,6 +2,23 @@
 
 All notable changes to SquidSonar will be documented in this file.
 
+## 0.2.0 - 2026-06-15
+
+- Added dashboard support for runtime spec starts, saved workflow spec drafts,
+  live claims, deferred continuations, dynamic work overlays, compensation
+  evidence, and recovery policy diagnostics.
+- Added workflow control operations and the raw workflow inspection tab for run
+  detail pages.
+- Rebranded Squid Mesh references to Squidie across the public package surface
+  and example application.
+- Upgraded Squidie to `0.3.0` and aligned the example app dependency lockfile
+  with the new runtime dependency set.
+- Upgraded Phoenix LiveView to `1.2.1` and split repeated UI event names so the
+  strict quality gates stay green.
+- Added strict CI quality gates and updated development, documentation, and
+  security dependencies.
+- Updated package metadata and install snippets to reference `0.2.0`.
+
 ## 0.1.7 - 2026-05-26
 
 - Clarified the README runtime boundary around SquidSonar's read-only Squid
