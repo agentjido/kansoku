@@ -45,6 +45,16 @@ defmodule SquidSonarWeb.RunLive do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("show_visual_workflow_panel", _params, socket) do
+    {:noreply, assign(socket, :workflow_panel_view, :visual)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("show_raw_workflow_panel", _params, socket) do
+    {:noreply, assign(socket, :workflow_panel_view, :raw)}
+  end
+
+  @impl Phoenix.LiveView
   def handle_event("cancel", %{"run-id" => run_id}, socket) do
     case Runs.cancel_run(run_id) do
       {:ok, _updated_run} ->

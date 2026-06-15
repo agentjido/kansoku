@@ -68,6 +68,16 @@ defmodule SquidSonarWeb.PageLive do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("paginate_previous", params, socket) do
+    handle_event("paginate", params, socket)
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("paginate_next", params, socket) do
+    handle_event("paginate", params, socket)
+  end
+
+  @impl Phoenix.LiveView
   def handle_event("set_theme", %{"theme" => theme}, socket) do
     {:noreply, assign(socket, :theme, normalize_theme(theme))}
   end
@@ -86,6 +96,11 @@ defmodule SquidSonarWeb.PageLive do
      socket
      |> assign(:runtime_spec_drawer_open?, false)
      |> assign(:runtime_spec_start_error, nil)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("dismiss_runtime_spec_drawer", params, socket) do
+    handle_event("close_runtime_spec_drawer", params, socket)
   end
 
   @impl Phoenix.LiveView
@@ -247,8 +262,7 @@ defmodule SquidSonarWeb.PageLive do
       type="button"
       phx-click="close_runtime_spec_drawer"
       aria-label="Close workflow starter"
-    >
-    </button>
+    ></button>
 
     <aside
       class="squid-sonar-runtime-spec-drawer"
@@ -264,7 +278,7 @@ defmodule SquidSonarWeb.PageLive do
         <button
           class="squid-sonar-runtime-spec-close"
           type="button"
-          phx-click="close_runtime_spec_drawer"
+          phx-click="dismiss_runtime_spec_drawer"
           aria-label="Close workflow starter"
           title="Close workflow starter"
         >
