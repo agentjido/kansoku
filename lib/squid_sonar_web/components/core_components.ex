@@ -350,7 +350,7 @@ defmodule SquidSonarWeb.CoreComponents do
         </label>
         <button
           type="button"
-          phx-click="paginate"
+          phx-click="paginate_previous"
           phx-value-page={@previous_page}
           disabled={@page <= 1}
         >
@@ -359,7 +359,7 @@ defmodule SquidSonarWeb.CoreComponents do
         <strong>{@page} / {@total_pages}</strong>
         <button
           type="button"
-          phx-click="paginate"
+          phx-click="paginate_next"
           phx-value-page={@next_page}
           disabled={@page >= @total_pages}
         >
@@ -589,7 +589,7 @@ defmodule SquidSonarWeb.CoreComponents do
           <button
             type="button"
             role="tab"
-            phx-click="select_workflow_panel"
+            phx-click="show_visual_workflow_panel"
             phx-value-view="visual"
             aria-selected={@workflow_panel_view == :visual}
             class={[
@@ -602,7 +602,7 @@ defmodule SquidSonarWeb.CoreComponents do
           <button
             type="button"
             role="tab"
-            phx-click="select_workflow_panel"
+            phx-click="show_raw_workflow_panel"
             phx-value-view="raw"
             aria-selected={@workflow_panel_view == :raw}
             class={[
