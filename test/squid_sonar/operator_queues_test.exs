@@ -1,6 +1,7 @@
 defmodule SquidSonar.OperatorQueuesTest do
   use ExUnit.Case, async: true
 
+  import ExUnit.CaptureLog
   import SquidSonar.ReadModelFixtures
 
   alias Squidie.ReadModel.Listing.Summary
@@ -145,6 +146,16 @@ defmodule SquidSonar.OperatorQueuesTest do
     assert schedule.trigger == :nightly_checkout
     assert schedule.expression == "0 2 * * *"
     assert schedule.timezone == "Etc/UTC"
+  end
+
+  test "logs workflow conversion failures before omitting schedules" do
+    log =
+      capture_log(fn ->
+        assert [] = OperatorQueues.list_schedules(invalid: __MODULE__)
+      end)
+
+    assert log =~ "Unable to load schedules"
+    assert log =~ inspect(__MODULE__)
   end
 
   test "projects a single runtime workflow spec" do

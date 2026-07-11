@@ -1249,6 +1249,11 @@ defmodule SquidSonarWeb.RunLiveTest do
   test "renders load errors without leaking internal reason details" do
     FakeSquidieClient.put_inspect_run({:error, {:missing_config, [:repo]}})
 
+    FakeSquidieClient.put_cancel(fn _run_id, _opts ->
+      send(self(), :cancel_called)
+      {:error, :must_not_run}
+    end)
+
     {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
     {:noreply, loaded_socket} =
@@ -1261,6 +1266,12 @@ defmodule SquidSonarWeb.RunLiveTest do
 
     assert html =~ "Unable to load runs"
     refute html =~ "missing_config"
+
+    assert {:noreply, denied_socket} =
+             RunLive.handle_event("cancel", %{"run-id" => "bad"}, loaded_socket)
+
+    refute_received :cancel_called
+    assert denied_socket.assigns.control_flash["error"] == "Run controls are not authorized."
   end
 
   test "keeps operator run details redacted while allowing control events" do

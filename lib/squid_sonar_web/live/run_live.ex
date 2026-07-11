@@ -64,6 +64,16 @@ defmodule SquidSonarWeb.RunLive do
   def handle_event(
         event,
         _params,
+        %{assigns: %{detail: detail}} = socket
+      )
+      when event in @control_events and not is_map(detail) do
+    {:noreply, put_run_flash(socket, :error, "Run controls are not authorized.")}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event(
+        event,
+        _params,
         %{assigns: %{detail: %{controls_allowed?: false}}} = socket
       )
       when event in @control_events do

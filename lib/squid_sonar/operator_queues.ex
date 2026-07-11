@@ -6,6 +6,8 @@ defmodule SquidSonar.OperatorQueues do
 
   alias SquidSonar.Runs
 
+  require Logger
+
   defmodule ManualAction do
     @moduledoc false
 
@@ -203,8 +205,13 @@ defmodule SquidSonar.OperatorQueues do
 
   defp schedules_for_entry({_key, workflow}) when is_atom(workflow) and not is_nil(workflow) do
     case Squidie.Workflow.to_spec(workflow) do
-      {:ok, spec} -> schedules_for_spec(spec)
-      {:error, _reason} -> []
+      {:ok, spec} ->
+        schedules_for_spec(spec)
+
+      {:error, reason} ->
+        Logger.warning("Unable to load schedules for #{inspect(workflow)}: #{inspect(reason)}")
+
+        []
     end
   end
 

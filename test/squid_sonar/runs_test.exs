@@ -92,6 +92,15 @@ defmodule SquidSonar.RunsTest do
   alias SquidSonar.Runs.RunDetail
   alias SquidSonar.Runs.RunSummary
 
+  test "run detail projections deny controls unless explicitly authorized" do
+    snapshot = snapshot(:running, workflow: Atom.to_string(CheckoutWorkflow))
+    graph = graph_inspection(:running, workflow: Atom.to_string(CheckoutWorkflow))
+    explanation = diagnostic(:running, workflow: Atom.to_string(CheckoutWorkflow))
+
+    assert %RunDetail{controls_allowed?: false} =
+             RunDetail.from_models(snapshot, explanation, graph)
+  end
+
   @client FakeSquidieClient
   @now ~U[2026-05-15 10:00:00Z]
 

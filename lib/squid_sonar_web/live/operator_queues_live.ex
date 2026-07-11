@@ -87,6 +87,7 @@ defmodule SquidSonarWeb.OperatorQueuesLive do
               <h2>Unable to load operator queues</h2>
               <p>Check the host application's Squidie configuration and logs.</p>
             </section>
+            <.schedules_panel schedules={@schedules} />
         <% end %>
       </div>
     </main>
@@ -212,7 +213,7 @@ defmodule SquidSonarWeb.OperatorQueuesLive do
                visibility_actor: visibility_actor,
                visibility_policy: visibility_policy
              ) do
-          {:ok, manual_actions} -> {:ok, manual_actions, reset: true}
+          {:ok, manual_actions} -> {:ok, manual_actions}
           {:error, _reason} = error -> error
         end
       end,

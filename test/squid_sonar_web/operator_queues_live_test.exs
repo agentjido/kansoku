@@ -150,9 +150,20 @@ defmodule SquidSonarWeb.OperatorQueuesLiveTest do
     manual_actions =
       AsyncResult.failed(%AsyncResult{}, {:missing_config, [:journal_storage]})
 
-    html = render_queues([], [], manual_actions)
+    schedules = [
+      %Schedule{
+        workflow: ScheduledCheckout,
+        trigger: :nightly_checkout,
+        expression: "0 2 * * *",
+        timezone: "Etc/UTC"
+      }
+    ]
+
+    html = render_queues([], schedules, manual_actions)
 
     assert html =~ "Unable to load operator queues"
+    assert html =~ "nightly_checkout"
+    assert html =~ "0 2 * * *"
     refute html =~ "journal_storage"
   end
 

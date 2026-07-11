@@ -237,7 +237,7 @@ defmodule SquidSonar.Runs.RunDetail do
     :explanation,
     :graph_inspection,
     :workflow_graph,
-    controls_allowed?: true,
+    controls_allowed?: false,
     recovery_policies: [],
     compensation_evidence: [],
     dynamic_work: [],
