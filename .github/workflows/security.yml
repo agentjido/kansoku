@@ -60,7 +60,7 @@ jobs:
             --severity CRITICAL,HIGH,MEDIUM
 
       - name: Upload Trivy scan results to GitHub Security
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e
+        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: "trivy-results.sarif"
@@ -78,7 +78,7 @@ jobs:
 
       - name: TruffleHog OSS (PR)
         if: github.event_name == 'pull_request'
-        uses: trufflesecurity/trufflehog@30d5bb91af1a771378349dbbb0c82129392acf70
+        uses: trufflesecurity/trufflehog@00155c9dc586f34d189adc83d3ac2698c2ec551f
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -87,7 +87,7 @@ jobs:
 
       - name: TruffleHog OSS (Push/Schedule)
         if: github.event_name != 'pull_request'
-        uses: trufflesecurity/trufflehog@30d5bb91af1a771378349dbbb0c82129392acf70
+        uses: trufflesecurity/trufflehog@00155c9dc586f34d189adc83d3ac2698c2ec551f
         with:
           path: ./
           extra_args: --debug
