@@ -225,7 +225,8 @@ defmodule SquidSonar.Runs.RunDetail do
           dynamic_work: [map()],
           dynamic_work_overlays: [DynamicWorkOverlay.t()],
           deferred_continuations: [DeferredContinuation.t()],
-          live_claims: [LiveClaim.t()]
+          live_claims: [LiveClaim.t()],
+          controls_allowed?: boolean()
         }
 
   defstruct [
@@ -236,6 +237,7 @@ defmodule SquidSonar.Runs.RunDetail do
     :explanation,
     :graph_inspection,
     :workflow_graph,
+    controls_allowed?: true,
     recovery_policies: [],
     compensation_evidence: [],
     dynamic_work: [],

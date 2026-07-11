@@ -19,6 +19,8 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ ".squid-sonar-nav-item:hover::before"
     assert conn.resp_body =~ ".squid-sonar-nav-item:hover strong"
     assert conn.resp_body =~ ".squid-sonar-badge"
+    assert conn.resp_body =~ ".squid-sonar-queue-content"
+    assert conn.resp_body =~ ".squid-sonar-schedule-status"
     assert conn.resp_body =~ "border-radius: 4px"
 
     assert conn.resp_body =~

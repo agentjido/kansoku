@@ -6,6 +6,7 @@ defmodule SquidSonarExampleWeb.RouterTest do
 
     assert Enum.any?(routes, &(&1.path == "/" and &1.plug == SquidSonarExampleWeb.PageController))
     assert Enum.any?(routes, &(&1.path == "/sonar" and &1.plug == Phoenix.LiveView.Plug))
+    assert Enum.any?(routes, &(&1.path == "/sonar/queues" and &1.plug == Phoenix.LiveView.Plug))
 
     assert Enum.any?(
              routes,
@@ -31,6 +32,9 @@ defmodule SquidSonarExampleWeb.RouterTest do
 
     assert Keyword.fetch!(runtime_specs, :retrying_checkout) ==
              SquidSonarExample.Workflows.RetryingCheckout
+
+    assert Keyword.fetch!(runtime_specs, :scheduled_reconciliation) ==
+             SquidSonarExample.Workflows.ScheduledReconciliation
 
     assert length(runtime_specs) > 1
   end

@@ -1238,4 +1238,126 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert html =~ "Unable to load runs"
     refute html =~ "missing_config"
   end
+
+  test "keeps restricted run details redacted and rejects control events" do
+    snapshot =
+      snapshot(:paused,
+        run_id: "restricted-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        input: %{"secret" => "snapshot-secret"},
+        context: %{"secret" => "context-secret"},
+        terminal?: false,
+        manual_state: %{kind: "approval", step: "review_order", reason: "review"}
+      )
+
+    graph =
+      graph_inspection(:paused,
+        run_id: "restricted-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_node_id: "review_order",
+        nodes: [
+          graph_node("review_order", :paused, true,
+            input: %{"secret" => "graph-secret"},
+            output: %{"secret" => "output-secret"}
+          )
+        ]
+      )
+
+    explanation =
+      diagnostic(:paused,
+        run_id: "restricted-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        step: "review_order",
+        details: %{kind: "approval", secret: "diagnostic-secret"},
+        next_actions: [:resolve_manual_step],
+        evidence: %{manual_state: %{kind: "approval"}, secret: "evidence-secret"}
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    FakeSquidieClient.put_approve(fn _run_id, _attrs, _opts ->
+      send(self(), :approve_called)
+      {:ok, snapshot}
+    end)
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    restricted_socket =
+      mounted_socket
+      |> Phoenix.Component.assign(:visibility_actor, "operator-1")
+      |> Phoenix.Component.assign(:visibility_policy, :operator)
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(
+        %{"id" => "restricted-run"},
+        "/sonar/runs/restricted-run",
+        restricted_socket
+      )
+
+    rendered = RunLive.render(loaded_socket.assigns)
+    html = rendered_to_string(rendered)
+
+    refute html =~ "snapshot-secret"
+    refute html =~ "context-secret"
+    refute html =~ "graph-secret"
+    refute html =~ "output-secret"
+    refute html =~ "diagnostic-secret"
+    refute html =~ "evidence-secret"
+    refute html =~ ~s(phx-click="approve")
+    refute html =~ ~s(phx-click="reject")
+    refute html =~ ~s(phx-click="cancel")
+
+    assert {:noreply, denied_socket} =
+             RunLive.handle_event("approve", %{"run-id" => "restricted-run"}, loaded_socket)
+
+    refute_received :approve_called
+    assert denied_socket.assigns.control_flash["error"] == "Run controls are not authorized."
+  end
+
+  test "rejects a control event targeting a different run" do
+    snapshot =
+      snapshot(:running,
+        run_id: "authorized-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        terminal?: false
+      )
+
+    graph =
+      graph_inspection(:running,
+        run_id: "authorized-run",
+        workflow: Atom.to_string(CheckoutWorkflow)
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "authorized-run",
+        workflow: Atom.to_string(CheckoutWorkflow)
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    FakeSquidieClient.put_cancel(fn _run_id, _opts ->
+      send(self(), :cancel_called)
+      {:ok, snapshot}
+    end)
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(
+        %{"id" => "authorized-run"},
+        "/sonar/runs/authorized-run",
+        mounted_socket
+      )
+
+    assert {:noreply, denied_socket} =
+             RunLive.handle_event("cancel", %{"run-id" => "other-run"}, loaded_socket)
+
+    refute_received :cancel_called
+    assert denied_socket.assigns.control_flash["error"] == "Run controls are not authorized."
+  end
 end

@@ -6,10 +6,17 @@ defmodule SquidSonar.Runs do
   That keeps runtime access, error handling, and view shaping in one place.
   """
 
+  alias Squidie.ReadModel.Visibility
   alias SquidSonar.Runs.RunDetail
   alias SquidSonar.Runs.RunSummary
 
-  @type option :: {:client, module()} | {:squidie, keyword()} | {:action_registry, term()}
+  @type option ::
+          {:client, module()}
+          | {:squidie, keyword()}
+          | {:action_registry, term()}
+          | {:visibility_actor, term()}
+          | {:visibility_policy, Visibility.policy()}
+          | {:controls_allowed?, boolean()}
 
   @doc """
   Lists recent runs as UI-friendly summaries.
@@ -33,10 +40,20 @@ defmodule SquidSonar.Runs do
     client = client(opts)
     squidie_opts = Keyword.get(opts, :squidie, [])
 
+    visibility_actor = Keyword.get(opts, :visibility_actor, "squid_sonar")
+    visibility_policy = Keyword.get(opts, :visibility_policy, :auditor)
+    controls_allowed? = Keyword.get(opts, :controls_allowed?, true)
+
     with {:ok, snapshot} <- client.inspect_run(run_id, squidie_opts),
          {:ok, graph} <- client.inspect_run_graph(run_id, squidie_opts),
-         {:ok, explanation} <- client.explain_run(run_id, squidie_opts) do
-      {:ok, RunDetail.from_models(snapshot, explanation, graph)}
+         {:ok, explanation} <- client.explain_run(run_id, squidie_opts),
+         {:ok, visible_snapshot} <-
+           Visibility.redact(snapshot, visibility_actor, visibility_policy),
+         {:ok, visible_graph} <- Visibility.redact(graph, visibility_actor, visibility_policy),
+         {:ok, visible_explanation} <-
+           Visibility.redact(explanation, visibility_actor, visibility_policy) do
+      detail = RunDetail.from_models(visible_snapshot, visible_explanation, visible_graph)
+      {:ok, %{detail | controls_allowed?: controls_allowed?}}
     end
   end
 

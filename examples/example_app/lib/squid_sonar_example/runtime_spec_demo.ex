@@ -11,6 +11,7 @@ defmodule SquidSonarExample.RuntimeSpecDemo do
   alias SquidSonarExample.Workflows.PausedCheckout
   alias SquidSonarExample.Workflows.RetryingCheckout
   alias SquidSonarExample.Workflows.SagaCheckout
+  alias SquidSonarExample.Workflows.ScheduledReconciliation
   alias Squidie.Workflow.EditorSpec
 
   @spec runtime_specs(Plug.Conn.t()) :: keyword(module())
@@ -19,6 +20,7 @@ defmodule SquidSonarExample.RuntimeSpecDemo do
       completed_checkout: CompletedCheckout,
       invoice_reconciliation: InvoiceReconciliation,
       retrying_checkout: RetryingCheckout,
+      scheduled_reconciliation: ScheduledReconciliation,
       paused_checkout: PausedCheckout,
       manual_review_checkout: ManualReviewCheckout,
       deferred_checkout: DeferredCheckout,

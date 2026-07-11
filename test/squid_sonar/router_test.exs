@@ -1,6 +1,14 @@
 defmodule SquidSonar.RouterTest do
   use ExUnit.Case, async: true
 
+  alias Phoenix.LiveView.Socket
+  alias SquidSonarWeb.Hooks
+
+  defmodule VisibilityActor do
+    @spec resolve(Plug.Conn.t() | map(), String.t()) :: String.t()
+    def resolve(conn, suffix), do: "#{conn.assigns.user_id}-#{suffix}"
+  end
+
   defmodule HostRouter do
     use Phoenix.Router
     use SquidSonar.Router
@@ -39,6 +47,7 @@ defmodule SquidSonar.RouterTest do
            )
 
     assert Enum.any?(routes, &(&1.path == "/sonar" and &1.plug == Phoenix.LiveView.Plug))
+    assert Enum.any?(routes, &(&1.path == "/sonar/queues" and &1.plug == Phoenix.LiveView.Plug))
     assert Enum.any?(routes, &(&1.path == "/sonar/runs/:id" and &1.plug == Phoenix.LiveView.Plug))
 
     assert Enum.any?(
@@ -111,6 +120,57 @@ defmodule SquidSonar.RouterTest do
              nil,
              %{saved_specs: nil, runtime_specs: nil}
            ]
+  end
+
+  test "supports actor-scoped read visibility" do
+    actor = "viewer-123"
+
+    assert {:squid_sonar, session_opts, [as: :squid_sonar]} =
+             SquidSonar.Router.__options__(
+               "/sonar",
+               visibility_actor: actor,
+               visibility_policy: :external
+             )
+
+    assert {:session, {SquidSonar.Router, :__session__, session_args}} =
+             List.keyfind(session_opts, :session, 0)
+
+    [_prefix, _live_path, _transport, _control_actor, _runtime_spec, _registry, runtime_options] =
+      session_args
+
+    assert %{visibility_actor: ^actor, visibility_policy: :external} = runtime_options
+  end
+
+  test "resolves an opaque visibility actor and propagates it through the mount hook" do
+    actor_mfa = {VisibilityActor, :resolve, ["active"]}
+
+    assert {:squid_sonar, session_opts, [as: :squid_sonar]} =
+             SquidSonar.Router.__options__(
+               "/sonar",
+               visibility_actor: actor_mfa,
+               visibility_policy: :external
+             )
+
+    assert {:session, {SquidSonar.Router, :__session__, session_args}} =
+             List.keyfind(session_opts, :session, 0)
+
+    session =
+      apply(SquidSonar.Router, :__session__, [
+        %{assigns: %{user_id: "user-42"}} | session_args
+      ])
+
+    assert session["visibility_actor"] == "user-42-active"
+    assert session["visibility_policy"] == :external
+
+    assert {:cont, socket} = Hooks.on_mount(:default, %{}, session, %Socket{})
+    assert socket.assigns.visibility_actor == "user-42-active"
+    assert socket.assigns.visibility_policy == :external
+  end
+
+  test "rejects non-opaque visibility actor configuration" do
+    assert_raise ArgumentError, ~r/invalid :visibility_actor/, fn ->
+      SquidSonar.Router.__options__("/sonar", visibility_actor: %{role: :admin})
+    end
   end
 
   test "supports runtime specs catalog and action registry start boundaries" do
@@ -216,7 +276,9 @@ defmodule SquidSonar.RouterTest do
              "runtime_spec" => nil,
              "action_registry" => nil,
              "saved_specs" => nil,
-             "runtime_specs" => nil
+             "runtime_specs" => nil,
+             "visibility_actor" => "squid_sonar",
+             "visibility_policy" => :operator
            } = SquidSonar.Router.__session__(%{}, "/sonar", "/live", "websocket")
   end
 

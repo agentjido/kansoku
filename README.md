@@ -82,6 +82,8 @@ The UI includes:
 - Page size controls and pagination
 - Run detail pages with diagnosis, history counts, last error, and workflow
   graph visualization
+- A read-only operator queue for active manual boundaries and cron triggers
+  declared by host-approved workflow specs
 - Recovery metadata on compensatable graph nodes when Squidie exposes
   rollback policy information
 - Recovery policy summaries that distinguish declared rollback callbacks,
@@ -149,6 +151,8 @@ squid_sonar "/sonar",
   socket_path: "/live",
   transport: "websocket",
   control_actor: {MyAppWeb.SquidSonarAudit, :control_actor, []},
+  visibility_actor: {MyAppWeb.SquidSonarAudit, :visibility_actor, []},
+  visibility_policy: MyApp.SquidieVisibilityPolicy,
   runtime_specs: {MyAppWeb.SquidSonarRuntimeSpec, :runtime_specs, []},
   action_registry: {MyAppWeb.SquidSonarRuntimeSpec, :action_registry, []}
 ```
@@ -167,9 +171,12 @@ defmodule MyAppWeb.SquidSonarAudit do
 
     %{
       "type" => "user",
-      "id" => user.id,
-      "email" => user.email
+      "id" => user.id
     }
+  end
+
+  def visibility_actor(conn) do
+    conn.assigns.current_user.id |> to_string()
   end
 end
 ```
@@ -177,6 +184,24 @@ end
 If omitted, SquidSonar uses a placeholder actor so local demos can exercise
 manual controls. Production mounts should pass the authenticated operator once
 the host app wires SquidSonar into its own auth pipeline.
+
+`visibility_actor` and `visibility_policy` are applied before SquidSonar
+projects manual-queue and run-detail data. The actor must be a minimal opaque
+identifier or an MFA returning one; it defaults to the resolved control actor's
+`id`. LiveView session values are signed but not encrypted, so never return
+secrets, personal data, role claims, or full user structs from this callback.
+
+The policy accepts Squidie's `:external`, `:operator`, or `:auditor` scope, a
+policy module, or `{module, opts}`; it defaults to `:operator`. Module policies
+receive the opaque identifier on every read and should fetch current
+server-side authorization state, failing closed for revoked or missing actors.
+Run mutation controls are available only for an explicit `:auditor` policy and
+still depend on the host application's authenticated and authorized router
+pipeline.
+
+Visit `/sonar/queues` to review all currently paused manual boundaries and cron
+triggers declared by `runtime_specs`. Scheduler enablement, future windows, and
+activation delivery remain host-owned and are not inferred by SquidSonar.
 
 `runtime_specs` and `action_registry` enable a start drawer on the `/sonar`
 dashboard. `runtime_specs` is a host-approved catalog of workflows that an
