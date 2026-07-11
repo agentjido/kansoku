@@ -265,7 +265,7 @@ defmodule SquidSonarWeb.RunLive do
     %{actor: Map.get(socket.assigns, :control_actor, SquidSonar.Router.default_control_actor())}
   end
 
-  defp controls_allowed?(socket), do: socket.assigns.visibility_policy == :auditor
+  defp controls_allowed?(socket), do: socket.assigns.visibility_policy == :operator
 
   defp normalize_theme("system"), do: :system
   defp normalize_theme("light"), do: :light

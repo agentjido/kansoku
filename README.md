@@ -195,9 +195,9 @@ The policy accepts Squidie's `:external`, `:operator`, or `:auditor` scope, a
 policy module, or `{module, opts}`; it defaults to `:operator`. Module policies
 receive the opaque identifier on every read and should fetch current
 server-side authorization state, failing closed for revoked or missing actors.
-Run mutation controls are available only for an explicit `:auditor` policy and
-still depend on the host application's authenticated and authorized router
-pipeline.
+Run mutation controls are available only for the `:operator` policy and still
+depend on the host application's authenticated and authorized router pipeline.
+The `:auditor` and `:external` policies are read-only.
 
 Visit `/sonar/queues` to review all currently paused manual boundaries and cron
 triggers declared by `runtime_specs`. Scheduler enablement, future windows, and

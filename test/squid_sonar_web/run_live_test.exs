@@ -136,7 +136,7 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert html =~ "apply_host_escalation_policy"
     assert html =~ "squid-sonar-workflow-graph"
     assert html =~ "squid-sonar-workflow-node-deadline"
-    assert html =~ "squid-sonar-workflow-panel-actions"
+    refute html =~ "squid-sonar-workflow-panel-actions"
   end
 
   test "renders live claim and heartbeat recovery evidence" do
@@ -284,7 +284,11 @@ defmodule SquidSonarWeb.RunLiveTest do
     {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
     {:noreply, loaded_socket} =
-      RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", mounted_socket)
+      RunLive.handle_params(
+        %{"id" => "run-1"},
+        "/sonar/runs/run-1",
+        operator_socket(mounted_socket)
+      )
 
     {:noreply, cancelled_socket} =
       RunLive.handle_event("cancel", %{"run-id" => "run-1"}, loaded_socket)
@@ -373,7 +377,11 @@ defmodule SquidSonarWeb.RunLiveTest do
     {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
     {:noreply, loaded_socket} =
-      RunLive.handle_params(%{"id" => "run-approval"}, "/sonar/runs/run-approval", mounted_socket)
+      RunLive.handle_params(
+        %{"id" => "run-approval"},
+        "/sonar/runs/run-approval",
+        operator_socket(mounted_socket)
+      )
 
     {:noreply, approved_socket} =
       RunLive.handle_event("approve", %{"run-id" => "run-approval"}, loaded_socket)
@@ -434,7 +442,11 @@ defmodule SquidSonarWeb.RunLiveTest do
     {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
     {:noreply, loaded_socket} =
-      RunLive.handle_params(%{"id" => "run-approval"}, "/sonar/runs/run-approval", mounted_socket)
+      RunLive.handle_params(
+        %{"id" => "run-approval"},
+        "/sonar/runs/run-approval",
+        operator_socket(mounted_socket)
+      )
 
     html =
       loaded_socket.assigns
@@ -490,7 +502,11 @@ defmodule SquidSonarWeb.RunLiveTest do
     end)
 
     {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
-    actor_socket = Phoenix.Component.assign(mounted_socket, :control_actor, actor)
+
+    actor_socket =
+      mounted_socket
+      |> operator_socket()
+      |> Phoenix.Component.assign(:control_actor, actor)
 
     {:noreply, loaded_socket} =
       RunLive.handle_params(%{"id" => "run-approval"}, "/sonar/runs/run-approval", actor_socket)
@@ -538,7 +554,11 @@ defmodule SquidSonarWeb.RunLiveTest do
     {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
     {:noreply, loaded_socket} =
-      RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", mounted_socket)
+      RunLive.handle_params(
+        %{"id" => "run-1"},
+        "/sonar/runs/run-1",
+        operator_socket(mounted_socket)
+      )
 
     {:noreply, cancelled_socket} =
       RunLive.handle_event("cancel", %{"run-id" => "run-1"}, loaded_socket)
@@ -628,7 +648,11 @@ defmodule SquidSonarWeb.RunLiveTest do
     {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
 
     {:noreply, loaded_socket} =
-      RunLive.handle_params(%{"id" => "run-1"}, "/sonar/runs/run-1", mounted_socket)
+      RunLive.handle_params(
+        %{"id" => "run-1"},
+        "/sonar/runs/run-1",
+        operator_socket(mounted_socket)
+      )
 
     FakeSquidieClient.put_replay({:ok, replayed_snapshot})
 
@@ -1239,7 +1263,7 @@ defmodule SquidSonarWeb.RunLiveTest do
     refute html =~ "missing_config"
   end
 
-  test "keeps restricted run details redacted and rejects control events" do
+  test "keeps operator run details redacted while allowing control events" do
     snapshot =
       snapshot(:paused,
         run_id: "restricted-run",
@@ -1305,12 +1329,74 @@ defmodule SquidSonarWeb.RunLiveTest do
     refute html =~ "output-secret"
     refute html =~ "diagnostic-secret"
     refute html =~ "evidence-secret"
+    assert html =~ ~s(phx-click="approve")
+    assert html =~ ~s(phx-click="reject")
+    assert html =~ ~s(phx-click="cancel")
+
+    assert {:noreply, approved_socket} =
+             RunLive.handle_event("approve", %{"run-id" => "restricted-run"}, loaded_socket)
+
+    assert_received :approve_called
+    assert approved_socket.assigns.control_flash["info"] == "Run approved successfully"
+  end
+
+  test "keeps auditor run controls read-only" do
+    snapshot =
+      snapshot(:paused,
+        run_id: "auditor-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        terminal?: false,
+        manual_state: %{kind: "approval", step: "review_order", reason: "review"}
+      )
+
+    graph =
+      graph_inspection(:paused,
+        run_id: "auditor-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        current_node_id: "review_order",
+        nodes: [graph_node("review_order", :paused, true)]
+      )
+
+    explanation =
+      diagnostic(:paused,
+        run_id: "auditor-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        step: "review_order",
+        details: %{kind: "approval"},
+        next_actions: [:resolve_manual_step],
+        evidence: %{manual_state: %{kind: "approval"}}
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    FakeSquidieClient.put_approve(fn _run_id, _attrs, _opts ->
+      send(self(), :approve_called)
+      {:ok, snapshot}
+    end)
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    auditor_socket =
+      mounted_socket
+      |> Phoenix.Component.assign(:visibility_actor, "auditor-1")
+      |> Phoenix.Component.assign(:visibility_policy, :auditor)
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(%{"id" => "auditor-run"}, "/sonar/runs/auditor-run", auditor_socket)
+
+    html =
+      loaded_socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
     refute html =~ ~s(phx-click="approve")
     refute html =~ ~s(phx-click="reject")
     refute html =~ ~s(phx-click="cancel")
 
     assert {:noreply, denied_socket} =
-             RunLive.handle_event("approve", %{"run-id" => "restricted-run"}, loaded_socket)
+             RunLive.handle_event("approve", %{"run-id" => "auditor-run"}, loaded_socket)
 
     refute_received :approve_called
     assert denied_socket.assigns.control_flash["error"] == "Run controls are not authorized."
@@ -1351,7 +1437,7 @@ defmodule SquidSonarWeb.RunLiveTest do
       RunLive.handle_params(
         %{"id" => "authorized-run"},
         "/sonar/runs/authorized-run",
-        mounted_socket
+        operator_socket(mounted_socket)
       )
 
     assert {:noreply, denied_socket} =
@@ -1359,5 +1445,9 @@ defmodule SquidSonarWeb.RunLiveTest do
 
     refute_received :cancel_called
     assert denied_socket.assigns.control_flash["error"] == "Run controls are not authorized."
+  end
+
+  defp operator_socket(socket) do
+    Phoenix.Component.assign(socket, :visibility_policy, :operator)
   end
 end
