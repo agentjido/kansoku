@@ -83,7 +83,7 @@ defmodule SquidSonar.MixProject do
   end
 
   defp squidie_dep do
-    {:squidie, "~> 0.3.0"}
+    {:squidie, "~> 0.3.4"}
   end
 
   defp aliases do

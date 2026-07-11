@@ -92,6 +92,15 @@ defmodule SquidSonar.RunsTest do
   alias SquidSonar.Runs.RunDetail
   alias SquidSonar.Runs.RunSummary
 
+  test "run detail projections deny controls unless explicitly authorized" do
+    snapshot = snapshot(:running, workflow: Atom.to_string(CheckoutWorkflow))
+    graph = graph_inspection(:running, workflow: Atom.to_string(CheckoutWorkflow))
+    explanation = diagnostic(:running, workflow: Atom.to_string(CheckoutWorkflow))
+
+    assert %RunDetail{controls_allowed?: false} =
+             RunDetail.from_models(snapshot, explanation, graph)
+  end
+
   @client FakeSquidieClient
   @now ~U[2026-05-15 10:00:00Z]
 
@@ -360,6 +369,114 @@ defmodule SquidSonar.RunsTest do
              }
 
     assert Enum.find(detail.workflow_graph.nodes, &(&1.name == "capture_payment")).recovery == nil
+  end
+
+  test "redacts every run detail read model before projection" do
+    snapshot =
+      snapshot(:running,
+        run_id: "restricted-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        input: %{"secret" => "snapshot-secret"},
+        context: %{"secret" => "context-secret"},
+        attempts: [attempt("load_order", :failed, 1, %{"message" => "attempt-secret"})]
+      )
+
+    graph =
+      graph_inspection(:running,
+        run_id: "restricted-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        nodes: [
+          graph_node("load_order", :running, true,
+            input: %{"secret" => "graph-secret"},
+            output: %{"secret" => "output-secret"}
+          )
+        ]
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "restricted-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        details: %{secret: "diagnostic-secret"},
+        evidence: %{secret: "evidence-secret"}
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    assert {:ok, detail} =
+             Runs.get_run("restricted-run",
+               client: @client,
+               visibility_actor: "operator-1",
+               visibility_policy: :operator,
+               controls_allowed?: false
+             )
+
+    assert detail.payload == nil
+    assert detail.context == %{}
+    assert detail.last_error == nil
+    assert detail.controls_allowed? == false
+    refute inspect(detail) =~ "snapshot-secret"
+    refute inspect(detail) =~ "context-secret"
+    refute inspect(detail) =~ "attempt-secret"
+    refute inspect(detail) =~ "graph-secret"
+    refute inspect(detail) =~ "output-secret"
+    refute inspect(detail) =~ "diagnostic-secret"
+    refute inspect(detail) =~ "evidence-secret"
+  end
+
+  test "preserves full run detail for an explicit auditor" do
+    snapshot =
+      snapshot(:running,
+        run_id: "auditor-run",
+        workflow: Atom.to_string(CheckoutWorkflow),
+        input: %{"visible" => "auditor-value"}
+      )
+
+    graph =
+      graph_inspection(:running,
+        run_id: "auditor-run",
+        workflow: Atom.to_string(CheckoutWorkflow)
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "auditor-run",
+        workflow: Atom.to_string(CheckoutWorkflow)
+      )
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    assert {:ok, detail} =
+             Runs.get_run("auditor-run",
+               client: @client,
+               visibility_actor: "auditor-1",
+               visibility_policy: :auditor,
+               controls_allowed?: true
+             )
+
+    assert detail.payload == %{"visible" => "auditor-value"}
+    assert detail.controls_allowed? == true
+  end
+
+  test "fails closed when the run detail visibility policy is invalid" do
+    snapshot = snapshot(:running, workflow: Atom.to_string(CheckoutWorkflow))
+    graph = graph_inspection(:running, workflow: Atom.to_string(CheckoutWorkflow))
+    explanation = diagnostic(:running, workflow: Atom.to_string(CheckoutWorkflow))
+
+    FakeSquidieClient.put_inspect_run({:ok, snapshot})
+    FakeSquidieClient.put_inspect_run_graph({:ok, graph})
+    FakeSquidieClient.put_explain_run({:ok, explanation})
+
+    assert {:error, {:invalid_visibility_policy, :missing_callback}} =
+             Runs.get_run("run-running",
+               client: @client,
+               visibility_actor: "operator-1",
+               visibility_policy: __MODULE__
+             )
   end
 
   test "projects dynamic work overlays and graph metadata" do

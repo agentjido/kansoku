@@ -2,6 +2,13 @@
 
 All notable changes to SquidSonar will be documented in this file.
 
+## Unreleased
+
+- Added read-only operator queues for active manual boundaries and cron
+  triggers declared by host-approved workflow specs.
+- Added actor-scoped Squidie visibility policy configuration for queue reads.
+- Upgraded Squidie to `0.3.4`.
+
 ## 0.2.0 - 2026-06-15
 
 - Added dashboard support for runtime spec starts, saved workflow spec drafts,

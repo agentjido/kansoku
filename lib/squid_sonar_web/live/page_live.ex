@@ -185,6 +185,9 @@ defmodule SquidSonarWeb.PageLive do
           </div>
         </.link>
         <div class="squid-sonar-topbar-actions">
+          <.link navigate={@prefix <> "/queues"} class="squid-sonar-control-button">
+            Operator queues
+          </.link>
           <button
             :if={@runtime_spec_catalog != []}
             type="button"

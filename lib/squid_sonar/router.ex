@@ -45,6 +45,14 @@ defmodule SquidSonar.Router do
       resume actions. Pass a non-empty binary, a non-empty map, or an MFA tuple
       `{module, function, args}`. MFA callbacks receive the current `conn` as
       their first argument.
+    * `:visibility_actor` - actor passed to Squidie's read visibility policy.
+      Pass a non-empty opaque identifier or an MFA tuple that returns one. It
+      defaults to the resolved control actor's `id` field. This value is stored
+      in a signed, client-readable LiveView session, so it must not contain
+      secrets, personal data, roles, or a full user struct.
+    * `:visibility_policy` - Squidie visibility scope, policy module, or
+      `{module, opts}` tuple. Defaults to `:operator`. Module policies should
+      revalidate current server-side authorization from the opaque actor id.
     * `:runtime_specs` - host-approved workflow catalog used by the dashboard
       start drawer. Pass a keyword list or map of stable keys to workflow modules
       or runtime specs, or an MFA tuple `{module, function, args}`. Workflow
@@ -79,6 +87,7 @@ defmodule SquidSonar.Router do
             as: :squid_sonar_live_view
 
           live "/", SquidSonarWeb.PageLive, :index, route_opts
+          live "/queues", SquidSonarWeb.OperatorQueuesLive, :index, route_opts
           live "/saved-specs/:key", SquidSonarWeb.SavedSpecLive, :show, route_opts
           live "/runs/:id", SquidSonarWeb.RunLive, :show, route_opts
         end
@@ -95,6 +104,14 @@ defmodule SquidSonar.Router do
 
     Enum.each(opts, &validate_opt!/1)
 
+    runtime_options =
+      %{
+        saved_specs: Keyword.get(opts, :saved_specs),
+        runtime_specs: Keyword.get(opts, :runtime_specs)
+      }
+      |> maybe_put(:visibility_actor, Keyword.get(opts, :visibility_actor))
+      |> maybe_put(:visibility_policy, Keyword.get(opts, :visibility_policy))
+
     session_args = [
       prefix,
       opts[:socket_path],
@@ -102,10 +119,7 @@ defmodule SquidSonar.Router do
       Keyword.get(opts, :control_actor, @default_control_actor),
       Keyword.get(opts, :runtime_spec),
       Keyword.get(opts, :action_registry),
-      %{
-        saved_specs: Keyword.get(opts, :saved_specs),
-        runtime_specs: Keyword.get(opts, :runtime_specs)
-      }
+      runtime_options
     ]
 
     session_opts = [
@@ -200,27 +214,34 @@ defmodule SquidSonar.Router do
         action_registry,
         runtime_options
       ) do
-    {saved_specs_config, runtime_specs_config} = runtime_session_options(runtime_options)
+    {saved_specs_config, runtime_specs_config, visibility_actor_config, visibility_policy} =
+      runtime_session_options(runtime_options)
 
     runtime_spec = resolve_session_value(conn, runtime_spec)
     action_registry = resolve_session_value(conn, action_registry)
     saved_specs = resolve_session_value(conn, saved_specs_config)
     runtime_specs = resolve_session_value(conn, runtime_specs_config)
+    control_actor = resolve_control_actor(conn, control_actor)
+
+    visibility_actor = resolve_visibility_actor(conn, visibility_actor_config, control_actor)
 
     validate_runtime_spec!(:runtime_spec, runtime_spec)
     validate_action_registry!(:action_registry, action_registry)
     validate_saved_specs!(:saved_specs, saved_specs)
     validate_runtime_specs!(:runtime_specs, runtime_specs)
+    validate_visibility_policy!(:visibility_policy, visibility_policy)
 
     %{
       "prefix" => prefix,
       "live_path" => live_path,
       "live_transport" => live_transport,
-      "control_actor" => resolve_control_actor(conn, control_actor),
+      "control_actor" => control_actor,
       "runtime_spec" => runtime_spec,
       "action_registry" => action_registry,
       "saved_specs" => saved_specs,
-      "runtime_specs" => runtime_specs
+      "runtime_specs" => runtime_specs,
+      "visibility_actor" => visibility_actor,
+      "visibility_policy" => visibility_policy
     }
   end
 
@@ -266,6 +287,19 @@ defmodule SquidSonar.Router do
     end
   end
 
+  defp validate_opt!({:visibility_actor, actor}) do
+    unless valid_visibility_actor_spec?(actor) do
+      raise ArgumentError, """
+      invalid :visibility_actor, expected a non-empty opaque identifier
+      or {module, function, args} tuple, got #{inspect(actor)}
+      """
+    end
+  end
+
+  defp validate_opt!({:visibility_policy, policy}) do
+    validate_visibility_policy!(:visibility_policy, policy)
+  end
+
   defp validate_opt!({:runtime_spec, spec}) do
     validate_runtime_spec!(:runtime_spec, spec, allow_mfa?: true)
   end
@@ -290,6 +324,10 @@ defmodule SquidSonar.Router do
   defp valid_control_actor_spec?(mfa) when is_tuple(mfa), do: valid_mfa_spec?(mfa)
 
   defp valid_control_actor_spec?(_actor), do: false
+
+  defp valid_visibility_actor_spec?(actor) when is_binary(actor), do: actor != ""
+  defp valid_visibility_actor_spec?(mfa) when is_tuple(mfa), do: valid_mfa_spec?(mfa)
+  defp valid_visibility_actor_spec?(_actor), do: false
 
   defp valid_mfa_spec?({module, function, args}) do
     is_atom(module) and is_atom(function) and is_list(args)
@@ -348,6 +386,22 @@ defmodule SquidSonar.Router do
     end
   end
 
+  defp validate_visibility_policy!(name, policy) do
+    unless valid_visibility_policy?(policy) do
+      raise ArgumentError, """
+      invalid #{inspect(name)}, expected :external, :operator, :auditor,
+      a policy module, or {module, opts}, got #{inspect(policy)}
+      """
+    end
+  end
+
+  defp valid_visibility_policy?(policy) when policy in [:external, :operator, :auditor],
+    do: true
+
+  defp valid_visibility_policy?(policy) when is_atom(policy), do: not is_nil(policy)
+  defp valid_visibility_policy?({module, _opts}) when is_atom(module), do: true
+  defp valid_visibility_policy?(_policy), do: false
+
   defp mfa_suffix(true), do: ", or {module, function, args} tuple"
   defp mfa_suffix(false), do: ""
 
@@ -356,14 +410,16 @@ defmodule SquidSonar.Router do
          Map.has_key?(runtime_options, :runtime_specs) do
       {
         Map.get(runtime_options, :saved_specs),
-        Map.get(runtime_options, :runtime_specs)
+        Map.get(runtime_options, :runtime_specs),
+        Map.get(runtime_options, :visibility_actor),
+        Map.get(runtime_options, :visibility_policy, :operator)
       }
     else
-      {nil, runtime_options}
+      {nil, runtime_options, nil, :operator}
     end
   end
 
-  defp runtime_session_options(runtime_specs), do: {nil, runtime_specs}
+  defp runtime_session_options(runtime_specs), do: {nil, runtime_specs, nil, :operator}
 
   defp resolve_control_actor(conn, {module, function, args}) do
     conn
@@ -372,6 +428,22 @@ defmodule SquidSonar.Router do
   end
 
   defp resolve_control_actor(_conn, actor), do: normalize_control_actor(actor)
+
+  defp resolve_visibility_actor(_conn, nil, control_actor) do
+    control_actor
+    |> control_actor_id()
+    |> normalize_visibility_actor!()
+  end
+
+  defp resolve_visibility_actor(conn, {module, function, args}, _control_actor) do
+    conn
+    |> then(&apply(module, function, [&1 | args]))
+    |> normalize_visibility_actor!()
+  end
+
+  defp resolve_visibility_actor(_conn, actor, _control_actor) do
+    normalize_visibility_actor!(actor)
+  end
 
   defp resolve_session_value(conn, {module, function, args}) do
     apply(module, function, [conn | args])
@@ -382,4 +454,20 @@ defmodule SquidSonar.Router do
   defp normalize_control_actor(actor) when is_binary(actor) and actor != "", do: actor
   defp normalize_control_actor(actor) when is_map(actor) and map_size(actor) > 0, do: actor
   defp normalize_control_actor(_actor), do: @default_control_actor
+
+  defp control_actor_id(actor) when is_binary(actor), do: actor
+
+  defp control_actor_id(actor) when is_map(actor) do
+    Squidie.MapField.get(actor, :id, @default_control_actor["id"])
+  end
+
+  defp normalize_visibility_actor!(actor) when is_binary(actor) and actor != "", do: actor
+
+  defp normalize_visibility_actor!(actor) do
+    raise ArgumentError,
+          "visibility_actor callback must return a non-empty opaque identifier, got: #{inspect(actor)}"
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 end

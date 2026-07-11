@@ -9,13 +9,19 @@ defmodule SquidSonarWeb.RunLive do
 
   @run_refresh_interval_ms 1_000
   @control_refresh_interval_ms 250
+  @control_events ~w(cancel resume approve reject replay)
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     {:ok,
      socket
-     |> assign_new(:prefix, fn -> "" end)
-     |> assign_new(:control_actor, &SquidSonar.Router.default_control_actor/0)
+     |> assign(:prefix, Map.get(socket.assigns, :prefix, ""))
+     |> assign(
+       :control_actor,
+       Map.get(socket.assigns, :control_actor, SquidSonar.Router.default_control_actor())
+     )
+     |> assign(:visibility_actor, Map.get(socket.assigns, :visibility_actor, "squid_sonar"))
+     |> assign(:visibility_policy, Map.get(socket.assigns, :visibility_policy, :auditor))
      |> assign(:page_title, "SquidSonar Run")
      |> assign(:theme, :system)
      |> assign(:workflow_panel_view, :visual)}
@@ -52,6 +58,36 @@ defmodule SquidSonarWeb.RunLive do
   @impl Phoenix.LiveView
   def handle_event("show_raw_workflow_panel", _params, socket) do
     {:noreply, assign(socket, :workflow_panel_view, :raw)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event(
+        event,
+        _params,
+        %{assigns: %{detail: detail}} = socket
+      )
+      when event in @control_events and not is_map(detail) do
+    {:noreply, put_run_flash(socket, :error, "Run controls are not authorized.")}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event(
+        event,
+        _params,
+        %{assigns: %{detail: %{controls_allowed?: false}}} = socket
+      )
+      when event in @control_events do
+    {:noreply, put_run_flash(socket, :error, "Run controls are not authorized.")}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event(
+        event,
+        %{"run-id" => requested_run_id},
+        %{assigns: %{run_id: current_run_id}} = socket
+      )
+      when event in @control_events and requested_run_id != current_run_id do
+    {:noreply, put_run_flash(socket, :error, "Run controls are not authorized.")}
   end
 
   @impl Phoenix.LiveView
@@ -174,7 +210,11 @@ defmodule SquidSonarWeb.RunLive do
   end
 
   defp assign_run(socket, run_id) do
-    case Runs.get_run(run_id) do
+    case Runs.get_run(run_id,
+           visibility_actor: socket.assigns.visibility_actor,
+           visibility_policy: socket.assigns.visibility_policy,
+           controls_allowed?: controls_allowed?(socket)
+         ) do
       {:ok, detail} ->
         socket
         |> assign(:run_id, run_id)
@@ -234,6 +274,8 @@ defmodule SquidSonarWeb.RunLive do
   defp control_attrs(socket) do
     %{actor: Map.get(socket.assigns, :control_actor, SquidSonar.Router.default_control_actor())}
   end
+
+  defp controls_allowed?(socket), do: socket.assigns.visibility_policy == :operator
 
   defp normalize_theme("system"), do: :system
   defp normalize_theme("light"), do: :light

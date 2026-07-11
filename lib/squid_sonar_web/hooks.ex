@@ -22,6 +22,8 @@ defmodule SquidSonarWeb.Hooks do
       |> assign(:runtime_specs, Map.get(session, "runtime_specs"))
       |> assign(:saved_specs, Map.get(session, "saved_specs"))
       |> assign(:action_registry, Map.get(session, "action_registry"))
+      |> assign(:visibility_actor, Map.get(session, "visibility_actor", %{}))
+      |> assign(:visibility_policy, Map.get(session, "visibility_policy", :operator))
 
     {:cont, socket}
   end

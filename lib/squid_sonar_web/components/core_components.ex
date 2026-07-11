@@ -1150,6 +1150,8 @@ defmodule SquidSonarWeb.CoreComponents do
     """
   end
 
+  defp available_control_actions(%{controls_allowed?: false}), do: []
+
   defp available_control_actions(%{summary: summary, explanation: explanation}) do
     status = summary.status
     terminal? = summary.terminal?
