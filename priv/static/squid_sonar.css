@@ -59,6 +59,7 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 }
 
 .squid-sonar-shell {
+  --squid-sonar-topbar-control-height: 32px;
   background: var(--squid-sonar-bg);
   box-sizing: border-box;
   color: var(--squid-sonar-text);
@@ -165,7 +166,7 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   border: 1px solid var(--squid-sonar-border);
   border-radius: 8px;
   display: flex;
-  min-height: 34px;
+  height: var(--squid-sonar-topbar-control-height);
   overflow: hidden;
   transition:
     border-color 120ms ease,
@@ -500,7 +501,12 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   border-radius: 8px;
   display: inline-flex;
   gap: 1px;
+  height: var(--squid-sonar-topbar-control-height);
   padding: 2px;
+}
+
+.squid-sonar-start-workflow-button {
+  height: var(--squid-sonar-topbar-control-height);
 }
 
 .squid-sonar-icon-button {
@@ -1128,6 +1134,30 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 .squid-sonar-table th:nth-child(6),
 .squid-sonar-table td:nth-child(6) {
   width: 17%;
+}
+
+.squid-sonar-runs-table th:first-child,
+.squid-sonar-runs-table td:first-child {
+  width: 40%;
+}
+
+.squid-sonar-runs-table th:nth-child(2),
+.squid-sonar-runs-table td:nth-child(2),
+.squid-sonar-runs-table th:nth-child(3),
+.squid-sonar-runs-table td:nth-child(3),
+.squid-sonar-runs-table th:nth-child(4),
+.squid-sonar-runs-table td:nth-child(4) {
+  width: 10%;
+}
+
+.squid-sonar-runs-table th:nth-child(5),
+.squid-sonar-runs-table td:nth-child(5) {
+  width: 14%;
+}
+
+.squid-sonar-runs-table th:nth-child(6),
+.squid-sonar-runs-table td:nth-child(6) {
+  width: 16%;
 }
 
 .squid-sonar-table tbody tr {

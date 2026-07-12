@@ -73,6 +73,7 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert html =~ ~s(placeholder="Jump to run ID…")
     assert html =~ ~s(minlength="3")
     assert html =~ "squid-sonar-run-jump-submit"
+    assert html =~ "squid-sonar-runs-table"
     assert html =~ "Filters"
     refute html =~ "squid-sonar-overview"
     refute html =~ "Status distribution"

@@ -321,7 +321,7 @@ defmodule SquidSonarWeb.PageLive do
             :if={@runtime_spec_catalog != []}
             type="button"
             phx-click="open_runtime_spec_drawer"
-            class="squid-sonar-control-button squid-sonar-control-button-secondary"
+            class="squid-sonar-control-button squid-sonar-control-button-secondary squid-sonar-start-workflow-button"
           >
             Start workflow
           </button>

@@ -31,6 +31,10 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ ".squid-sonar-saved-workflows-content"
     assert conn.resp_body =~ ".squid-sonar-run-jump-control"
     assert conn.resp_body =~ ".squid-sonar-run-jump-control:focus-within"
+    assert conn.resp_body =~ "--squid-sonar-topbar-control-height: 32px"
+    assert conn.resp_body =~ ".squid-sonar-start-workflow-button"
+    assert conn.resp_body =~ ".squid-sonar-runs-table th:first-child"
+    assert conn.resp_body =~ "width: 40%"
 
     refute conn.resp_body =~
              ~r/\.squid-sonar-saved-workflows-slot\s*\{[^}]*background:/s

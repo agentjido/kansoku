@@ -506,7 +506,7 @@ defmodule SquidSonarWeb.CoreComponents do
   def runs_table(assigns) do
     ~H"""
     <div class="squid-sonar-table-wrap">
-      <table class="squid-sonar-table">
+      <table class="squid-sonar-table squid-sonar-runs-table">
         <thead>
           <tr>
             <th>Workflow</th>
