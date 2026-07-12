@@ -28,6 +28,10 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ ".squid-sonar-advanced-filters"
     assert conn.resp_body =~ ".squid-sonar-saved-workflows-slot"
     assert conn.resp_body =~ ".squid-sonar-saved-workflows-content"
+
+    refute conn.resp_body =~
+             ~r/\.squid-sonar-saved-workflows-slot\s*\{[^}]*background:/s
+
     assert conn.resp_body =~ ".squid-sonar-panel-heading h2"
     assert conn.resp_body =~ ".squid-sonar-filter-controls-primary"
 

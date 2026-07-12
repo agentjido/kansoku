@@ -2222,9 +2222,7 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 }
 
 .squid-sonar-saved-workflows-slot {
-  background: var(--squid-sonar-surface-muted);
-  border-bottom: 1px solid var(--squid-sonar-border);
-  padding: var(--squid-sonar-space-4) var(--squid-sonar-space-5);
+  padding: var(--squid-sonar-space-3) var(--squid-sonar-space-5);
 }
 
 .squid-sonar-saved-workflows-content {
