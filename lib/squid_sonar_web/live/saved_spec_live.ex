@@ -150,12 +150,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
   defp validation_panel(assigns) do
     ~H"""
     <section class="squid-sonar-saved-spec-section">
-      <div class="squid-sonar-panel-heading">
-        <div>
-          <p class="squid-sonar-eyebrow">Validation</p>
-          <h3>Status</h3>
-        </div>
-      </div>
+      <.panel_heading eyebrow="Validation" title="Status" level={:h3} />
 
       <p :if={@validation.status == :valid}>Valid</p>
 
@@ -172,12 +167,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
   defp start_panel(%{saved_spec: %{startable?: false}} = assigns) do
     ~H"""
     <section class="squid-sonar-saved-spec-section">
-      <div class="squid-sonar-panel-heading">
-        <div>
-          <p class="squid-sonar-eyebrow">Activation</p>
-          <h3>Start run</h3>
-        </div>
-      </div>
+      <.panel_heading eyebrow="Activation" title="Start run" level={:h3} />
       <p>Only host-approved valid specs with an executable runtime spec can start runs.</p>
     </section>
     """
@@ -186,12 +176,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
   defp start_panel(assigns) do
     ~H"""
     <section class="squid-sonar-saved-spec-section">
-      <div class="squid-sonar-panel-heading">
-        <div>
-          <p class="squid-sonar-eyebrow">Activation</p>
-          <h3>Start run</h3>
-        </div>
-      </div>
+      <.panel_heading eyebrow="Activation" title="Start run" level={:h3} />
 
       <form class="squid-sonar-runtime-spec-form" phx-submit="start_saved_spec">
         <label class="squid-sonar-runtime-spec-field">
@@ -214,12 +199,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
   defp graph_panel(assigns) do
     ~H"""
     <section class="squid-sonar-saved-spec-section">
-      <div class="squid-sonar-panel-heading">
-        <div>
-          <p class="squid-sonar-eyebrow">Preview</p>
-          <h3>Graph preview</h3>
-        </div>
-      </div>
+      <.panel_heading eyebrow="Preview" title="Graph preview" level={:h3} />
 
       <%= case @preview do %>
         <% {:ok, graph} -> %>
@@ -241,12 +221,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
   defp diff_panel(%{diff: nil} = assigns) do
     ~H"""
     <section class="squid-sonar-saved-spec-section">
-      <div class="squid-sonar-panel-heading">
-        <div>
-          <p class="squid-sonar-eyebrow">Source comparison</p>
-          <h3>Source diff</h3>
-        </div>
-      </div>
+      <.panel_heading eyebrow="Source comparison" title="Source diff" level={:h3} />
       <p>No source spec was provided by the host application.</p>
     </section>
     """
@@ -255,12 +230,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
   defp diff_panel(assigns) do
     ~H"""
     <section class="squid-sonar-saved-spec-section">
-      <div class="squid-sonar-panel-heading">
-        <div>
-          <p class="squid-sonar-eyebrow">Source comparison</p>
-          <h3>Source diff</h3>
-        </div>
-      </div>
+      <.panel_heading eyebrow="Source comparison" title="Source diff" level={:h3} />
 
       <%= case @diff do %>
         <% {:ok, diff} -> %>
@@ -276,12 +246,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
   defp raw_panel(assigns) do
     ~H"""
     <section class="squid-sonar-saved-spec-section">
-      <div class="squid-sonar-panel-heading">
-        <div>
-          <p class="squid-sonar-eyebrow">Inspection</p>
-          <h3>{@title}</h3>
-        </div>
-      </div>
+      <.panel_heading eyebrow="Inspection" title={@title} level={:h3} />
       <pre class="squid-sonar-json-block">{json_pretty(@value)}</pre>
     </section>
     """

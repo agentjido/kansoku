@@ -162,6 +162,8 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert html =~ ~r/<details[^>]*squid-sonar-advanced-filters[^>]*open/
     assert html =~ "Copy run ID"
     assert html =~ "Copy workflow"
+    assert html =~ ~r/>\s*ID\s*</
+    assert html =~ ~r/>\s*Name\s*</
     assert filtered_socket.assigns.dashboard.page_size == 25
   end
 
@@ -715,15 +717,25 @@ defmodule SquidSonarWeb.PageLiveTest do
         }
       )
 
-    html =
+    closed_html =
       socket.assigns
       |> PageLive.render()
       |> rendered_to_string()
 
-    assert html =~ "Saved workflow specs"
-    assert html =~ "Checkout runtime spec"
-    assert html =~ "Approved"
-    assert html =~ ~s(href="/sonar/saved-specs/checkout_runtime_spec")
+    assert closed_html =~ ~s(id="saved-workflows-toggle")
+    assert closed_html =~ ~s(aria-expanded="false")
+    refute closed_html =~ ~s(id="saved-workflows-panel")
+
+    {:noreply, open_socket} = PageLive.handle_event("toggle_saved_specs", %{}, socket)
+    open_html = rendered_to_string(PageLive.render(open_socket.assigns))
+
+    assert open_html =~ ~s(aria-expanded="true")
+    assert open_html =~ ~s(id="saved-workflows-panel")
+    assert open_html =~ "squid-sonar-saved-workflows-content"
+    assert open_html =~ "Saved workflow specs"
+    assert open_html =~ "Checkout runtime spec"
+    assert open_html =~ "Approved"
+    assert open_html =~ ~s(href="/sonar/saved-specs/checkout_runtime_spec")
   end
 
   test "does not render saved workflow specs without host configuration" do

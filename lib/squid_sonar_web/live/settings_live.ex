@@ -71,13 +71,14 @@ defmodule SquidSonarWeb.SettingsLive do
         </section>
 
         <section class="squid-sonar-panel squid-sonar-settings-json-panel">
-          <div class="squid-sonar-panel-heading">
-            <div class="squid-sonar-panel-title">
-              <h2>Safe JSON</h2>
-              <p>Copy this allowlisted projection when troubleshooting an integration.</p>
-            </div>
-            <.copy_button id="copy-runtime-settings" target_id="runtime-settings-json" />
-          </div>
+          <.panel_heading
+            title="Safe JSON"
+            description="Copy this allowlisted projection when troubleshooting an integration."
+          >
+            <:actions>
+              <.copy_button id="copy-runtime-settings" target_id="runtime-settings-json" />
+            </:actions>
+          </.panel_heading>
           <pre id="runtime-settings-json" class="squid-sonar-workflow-raw-json"><code>{@settings_json}</code></pre>
         </section>
       </div>

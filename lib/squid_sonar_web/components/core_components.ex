@@ -27,6 +27,7 @@ defmodule SquidSonarWeb.CoreComponents do
   attr :id, :string, required: true
   attr :target_id, :string, required: true
   attr :label, :string, default: "Copy"
+  attr :text, :string, default: nil
 
   @spec copy_button(map()) :: Phoenix.LiveView.Rendered.t()
   def copy_button(assigns) do
@@ -40,8 +41,33 @@ defmodule SquidSonarWeb.CoreComponents do
       data-copy-label={@label}
       aria-label={@label}
     >
-      {@label}
+      {@text || @label}
     </button>
+    """
+  end
+
+  attr :eyebrow, :string, default: nil
+  attr :title, :string, required: true
+  attr :description, :string, default: nil
+  attr :level, :atom, values: [:h2, :h3], default: :h2
+  attr :class, :any, default: nil
+  slot :actions
+
+  @spec panel_heading(map()) :: Phoenix.LiveView.Rendered.t()
+  def panel_heading(assigns) do
+    ~H"""
+    <div class={["squid-sonar-panel-heading", @class]}>
+      <div class="squid-sonar-section-heading-copy">
+        <p :if={@eyebrow} class="squid-sonar-eyebrow">{@eyebrow}</p>
+        <h2 :if={@level == :h2}>{@title}</h2>
+        <h3 :if={@level == :h3}>{@title}</h3>
+        <p :if={@description} class="squid-sonar-panel-heading-description">{@description}</p>
+      </div>
+
+      <div :if={@actions != []} class="squid-sonar-panel-tools">
+        {render_slot(@actions)}
+      </div>
+    </div>
     """
   end
 
@@ -257,21 +283,46 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :dashboard, :map, required: true
   attr :prefix, :string, default: ""
+  attr :saved_specs_count, :integer, default: 0
+  attr :saved_specs_open?, :boolean, default: false
+  slot :saved_workflows
 
   @spec runs_panel(map()) :: Phoenix.LiveView.Rendered.t()
   def runs_panel(assigns) do
     ~H"""
     <section class="squid-sonar-panel squid-sonar-runs-panel">
-      <div class="squid-sonar-panel-heading squid-sonar-runs-panel-heading">
-        <div class="squid-sonar-section-heading-copy">
-          <p class="squid-sonar-eyebrow">Recent execution activity across the host runtime.</p>
-          <h2>Workflow runs</h2>
-        </div>
-
-        <div class="squid-sonar-panel-tools">
+      <.panel_heading
+        eyebrow="Recent execution activity across the host runtime."
+        title="Workflow runs"
+        class="squid-sonar-runs-panel-heading"
+      >
+        <:actions>
+          <button
+            :if={@saved_specs_count > 0}
+            id="saved-workflows-toggle"
+            type="button"
+            class="squid-sonar-icon-button"
+            phx-click="toggle_saved_specs"
+            aria-expanded={to_string(@saved_specs_open?)}
+            aria-controls="saved-workflows-panel"
+            title="Saved workflows"
+            aria-label="Saved workflows"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4Z" />
+            </svg>
+          </button>
           <.refresh_button />
-        </div>
-      </div>
+        </:actions>
+      </.panel_heading>
 
       <div class="squid-sonar-panel-actions squid-sonar-runs-panel-filters">
         <div class="squid-sonar-filter-controls squid-sonar-filter-controls-primary">
@@ -395,6 +446,13 @@ defmodule SquidSonarWeb.CoreComponents do
         </details>
       </div>
 
+      <div
+        :if={@saved_specs_open? and @saved_workflows != []}
+        class="squid-sonar-saved-workflows-slot"
+      >
+        {render_slot(@saved_workflows)}
+      </div>
+
       <%= if @dashboard.runs == [] do %>
         <.empty_runs />
       <% else %>
@@ -460,11 +518,13 @@ defmodule SquidSonarWeb.CoreComponents do
                     id={"copy-run-id-#{run.id}"}
                     target_id={"run-id-#{run.id}"}
                     label="Copy run ID"
+                    text="ID"
                   />
                   <.copy_button
                     id={"copy-run-workflow-#{run.id}"}
                     target_id={"run-workflow-#{run.id}"}
                     label="Copy workflow"
+                    text="Name"
                   />
                 </div>
               </div>
@@ -590,17 +650,19 @@ defmodule SquidSonarWeb.CoreComponents do
       </div>
 
       <section class="squid-sonar-detail-panel squid-sonar-summary-json-panel">
-        <div class="squid-sonar-panel-heading">
-          <div class="squid-sonar-panel-title">
-            <h3>Run summary JSON</h3>
-            <p>Only values already visible in this run summary are included.</p>
-          </div>
-          <.copy_button
-            id="copy-run-summary-json"
-            target_id="run-summary-json"
-            label="Copy safe JSON"
-          />
-        </div>
+        <.panel_heading
+          title="Run summary JSON"
+          description="Only values already visible in this run summary are included."
+          level={:h3}
+        >
+          <:actions>
+            <.copy_button
+              id="copy-run-summary-json"
+              target_id="run-summary-json"
+              label="Copy safe JSON"
+            />
+          </:actions>
+        </.panel_heading>
         <pre id="run-summary-json" class="squid-sonar-workflow-raw-json"><code>{run_summary_json(@detail.summary)}</code></pre>
       </section>
 

@@ -27,6 +27,7 @@ defmodule SquidSonarWeb.PageLive do
       |> assign(:page_title, "SquidSonar Runtime")
       |> assign(:theme, :system)
       |> assign(:jump_error, nil)
+      |> assign(:saved_specs_open?, false)
       |> assign_runtime_spec_start()
       |> assign_saved_specs()
       |> assign_dashboard(
@@ -141,6 +142,11 @@ defmodule SquidSonarWeb.PageLive do
   @impl Phoenix.LiveView
   def handle_event("set_theme", %{"theme" => theme}, socket) do
     {:noreply, assign(socket, :theme, normalize_theme(theme))}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("toggle_saved_specs", _params, socket) do
+    {:noreply, update(socket, :saved_specs_open?, &(!&1))}
   end
 
   @impl Phoenix.LiveView
@@ -316,8 +322,16 @@ defmodule SquidSonarWeb.PageLive do
               </aside>
 
               <div class="squid-sonar-main-column">
-                <.saved_specs_panel saved_specs={@saved_spec_catalog} prefix={@prefix} />
-                <.runs_panel dashboard={@dashboard} prefix={@prefix} />
+                <.runs_panel
+                  dashboard={@dashboard}
+                  prefix={@prefix}
+                  saved_specs_count={length(@saved_spec_catalog)}
+                  saved_specs_open?={@saved_specs_open?}
+                >
+                  <:saved_workflows>
+                    <.saved_specs_panel saved_specs={@saved_spec_catalog} prefix={@prefix} />
+                  </:saved_workflows>
+                </.runs_panel>
               </div>
             </section>
           </form>
@@ -445,13 +459,12 @@ defmodule SquidSonarWeb.PageLive do
 
   defp saved_specs_panel(assigns) do
     ~H"""
-    <section class="squid-sonar-saved-specs-panel" aria-label="Saved workflow specs">
-      <div class="squid-sonar-panel-heading">
-        <div class="squid-sonar-section-heading-copy">
-          <p class="squid-sonar-eyebrow">Saved specs</p>
-          <h2>Saved workflow specs</h2>
-        </div>
-      </div>
+    <section
+      id="saved-workflows-panel"
+      class="squid-sonar-saved-workflows-content"
+      aria-label="Saved workflow specs"
+    >
+      <.panel_heading eyebrow="Saved specs" title="Saved workflow specs" />
 
       <div class="squid-sonar-saved-specs-list">
         <.link
