@@ -2221,10 +2221,18 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   overflow: hidden;
 }
 
+.squid-sonar-saved-workflows-slot {
+  background: var(--squid-sonar-surface-muted);
+  border-bottom: 1px solid var(--squid-sonar-border);
+  padding: var(--squid-sonar-space-4) var(--squid-sonar-space-5);
+}
+
 .squid-sonar-saved-workflows-content {
   background: var(--squid-sonar-surface);
-  border-bottom: 1px solid var(--squid-sonar-border);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 8px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .squid-sonar-saved-specs-list {
@@ -2550,6 +2558,10 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   .squid-sonar-content {
     padding-left: var(--squid-sonar-space-3);
     padding-right: var(--squid-sonar-space-3);
+  }
+
+  .squid-sonar-saved-workflows-slot {
+    padding: var(--squid-sonar-space-3);
   }
 
   .squid-sonar-queue-page-heading {
