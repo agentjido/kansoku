@@ -21,6 +21,30 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ ".squid-sonar-badge"
     assert conn.resp_body =~ ".squid-sonar-queue-content"
     assert conn.resp_body =~ ".squid-sonar-schedule-status"
+
+    assert conn.resp_body =~
+             ~r/\.squid-sonar-filter-controls\s*\{[^}]*grid-template-columns: repeat\(4,/s
+
+    assert conn.resp_body =~ ".squid-sonar-advanced-filters"
+    assert conn.resp_body =~ ".squid-sonar-reset-filters"
+    assert conn.resp_body =~ ".squid-sonar-saved-workflows-slot"
+    assert conn.resp_body =~ ".squid-sonar-saved-workflows-content"
+    assert conn.resp_body =~ ".squid-sonar-run-jump-control"
+    assert conn.resp_body =~ ".squid-sonar-run-jump-control:focus-within"
+    assert conn.resp_body =~ "--squid-sonar-topbar-control-height: 32px"
+    assert conn.resp_body =~ ".squid-sonar-start-workflow-button"
+    assert conn.resp_body =~ ".squid-sonar-runs-table th:first-child"
+    assert conn.resp_body =~ "width: 40%"
+
+    refute conn.resp_body =~
+             ~r/\.squid-sonar-saved-workflows-slot\s*\{[^}]*background:/s
+
+    assert conn.resp_body =~ ".squid-sonar-panel-heading h2"
+    assert conn.resp_body =~ ".squid-sonar-filter-controls-primary"
+
+    assert conn.resp_body =~
+             ~r/\.squid-sonar-panel-heading\s*\{[^}]*min-height: 0;[^}]*padding: var\(--squid-sonar-space-2\)/s
+
     assert conn.resp_body =~ "border-radius: 4px"
 
     assert conn.resp_body =~
@@ -61,6 +85,11 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ "squid-sonar-theme"
     assert conn.resp_body =~ "SquidSonarTheme"
     assert conn.resp_body =~ "SquidSonarFlash"
+    assert conn.resp_body =~ "SquidSonarCopy"
+    assert conn.resp_body =~ "navigator.clipboard.writeText"
+    assert conn.resp_body =~ "target.textContent"
+    assert conn.resp_body =~ "dataset.copyText"
+    assert conn.resp_body =~ "this.el.textContent = displayText"
   end
 
   test "serves packaged LiveView client dependencies" do

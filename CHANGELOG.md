@@ -4,6 +4,9 @@ All notable changes to SquidSonar will be documented in this file.
 
 ## Unreleased
 
+- Added shareable dashboard filters, safe run-ID prefix navigation, shared
+  operator navigation, visible-value copy controls, and a read-only settings
+  page with an allowlisted runtime projection.
 - Added read-only operator queues for active manual boundaries and cron
   triggers declared by host-approved workflow specs.
 - Added actor-scoped Squidie visibility policy configuration for queue reads.

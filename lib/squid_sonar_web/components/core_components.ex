@@ -5,6 +5,90 @@ defmodule SquidSonarWeb.CoreComponents do
 
   alias SquidSonarWeb.WorkflowGraphLayout
 
+  attr :prefix, :string, default: ""
+  attr :current, :atom, required: true
+
+  @spec operator_nav(map()) :: Phoenix.LiveView.Rendered.t()
+  def operator_nav(assigns) do
+    ~H"""
+    <nav class="squid-sonar-operator-nav" aria-label="SquidSonar navigation">
+      <.nav_link href={@prefix <> "/"} label="Recent runs" current={@current == :runs} />
+      <.nav_link
+        href={@prefix <> "/#workflow-runs"}
+        label="Workflows"
+        current={@current == :workflows}
+      />
+      <.nav_link href={@prefix <> "/queues"} label="Manual actions" current={@current == :queues} />
+      <.nav_link href={@prefix <> "/settings"} label="Settings" current={@current == :settings} />
+    </nav>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :target_id, :string, required: true
+  attr :label, :string, default: "Copy"
+  attr :text, :string, default: nil
+
+  @spec copy_button(map()) :: Phoenix.LiveView.Rendered.t()
+  def copy_button(assigns) do
+    ~H"""
+    <button
+      id={@id}
+      type="button"
+      class="squid-sonar-copy-button"
+      phx-hook="SquidSonarCopy"
+      data-copy-target={@target_id}
+      data-copy-label={@label}
+      data-copy-text={@text || @label}
+      title={@label}
+      aria-label={@label}
+    >
+      {@text || @label}
+    </button>
+    """
+  end
+
+  attr :eyebrow, :string, default: nil
+  attr :title, :string, required: true
+  attr :description, :string, default: nil
+  attr :level, :atom, values: [:h2, :h3], default: :h2
+  attr :class, :any, default: nil
+  slot :actions
+
+  @spec panel_heading(map()) :: Phoenix.LiveView.Rendered.t()
+  def panel_heading(assigns) do
+    ~H"""
+    <div class={["squid-sonar-panel-heading", @class]}>
+      <div class="squid-sonar-section-heading-copy">
+        <p :if={@eyebrow} class="squid-sonar-eyebrow">{@eyebrow}</p>
+        <h2 :if={@level == :h2}>{@title}</h2>
+        <h3 :if={@level == :h3}>{@title}</h3>
+        <p :if={@description} class="squid-sonar-panel-heading-description">{@description}</p>
+      </div>
+
+      <div :if={@actions != []} class="squid-sonar-panel-tools">
+        {render_slot(@actions)}
+      </div>
+    </div>
+    """
+  end
+
+  attr :href, :string, required: true
+  attr :label, :string, required: true
+  attr :current, :boolean, required: true
+
+  defp nav_link(assigns) do
+    ~H"""
+    <.link
+      navigate={@href}
+      class={["squid-sonar-operator-nav-link", @current && "is-active"]}
+      aria-current={@current && "page"}
+    >
+      {@label}
+    </.link>
+    """
+  end
+
   attr :status, :atom, required: true
 
   @spec status_badge(map()) :: Phoenix.LiveView.Rendered.t()
@@ -201,48 +285,186 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :dashboard, :map, required: true
   attr :prefix, :string, default: ""
+  attr :advanced_filters_open?, :boolean, default: false
+  attr :saved_specs_count, :integer, default: 0
+  attr :saved_specs_open?, :boolean, default: false
+  slot :saved_workflows
 
   @spec runs_panel(map()) :: Phoenix.LiveView.Rendered.t()
   def runs_panel(assigns) do
     ~H"""
-    <section class="squid-sonar-panel">
-      <div class="squid-sonar-panel-heading">
-        <div class="squid-sonar-panel-title">
-          <h2>Workflow runs</h2>
-          <p>Recent execution activity across the host runtime.</p>
-        </div>
-
-        <div class="squid-sonar-panel-actions">
-          <div class="squid-sonar-filter-controls">
-            <label class="squid-sonar-search">
-              <span>Search</span>
-              <input
-                type="search"
-                name="filters[query]"
-                value={@dashboard.filters.query}
-                placeholder="Workflow, queue, status, run ID"
-                phx-debounce="250"
-              />
-            </label>
-
-            <label class="squid-sonar-select-filter">
-              <span>Deadline</span>
-              <select name="filters[deadline]">
-                <option
-                  :for={{value, label} <- deadline_filter_options()}
-                  value={value}
-                  selected={@dashboard.filters.deadline == value}
-                >
-                  {label}
-                </option>
-              </select>
-            </label>
-          </div>
-        </div>
-
-        <div class="squid-sonar-panel-tools">
+    <section class="squid-sonar-panel squid-sonar-runs-panel">
+      <.panel_heading
+        eyebrow="Recent execution activity across the host runtime"
+        title="Workflow runs"
+        class="squid-sonar-runs-panel-heading"
+      >
+        <:actions>
+          <button
+            :if={@saved_specs_count > 0}
+            id="saved-workflows-toggle"
+            type="button"
+            class="squid-sonar-icon-button"
+            phx-click="toggle_saved_specs"
+            aria-expanded={to_string(@saved_specs_open?)}
+            aria-controls="saved-workflows-panel"
+            title="Saved workflows"
+            aria-label="Saved workflows"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4Z" />
+            </svg>
+          </button>
           <.refresh_button />
+        </:actions>
+      </.panel_heading>
+
+      <div class="squid-sonar-panel-actions squid-sonar-runs-panel-filters">
+        <div class="squid-sonar-filter-controls squid-sonar-filter-controls-primary">
+          <label class="squid-sonar-search squid-sonar-search-query">
+            <span>Search</span>
+            <input
+              type="search"
+              name="filters[query]"
+              value={@dashboard.filters.query}
+              placeholder="Workflow, queue, status, run ID"
+              phx-debounce="250"
+            />
+          </label>
+
+          <label class="squid-sonar-search squid-sonar-search-prefix">
+            <span>Run ID prefix</span>
+            <input
+              type="search"
+              name="filters[run_id]"
+              value={@dashboard.filters.run_id}
+              placeholder="run-abc"
+              maxlength="128"
+              phx-debounce="250"
+            />
+          </label>
+
+          <label class="squid-sonar-select-filter">
+            <span>Workflow</span>
+            <select name="filters[workflow]">
+              <option value="">All workflows</option>
+              <option
+                :for={workflow <- @dashboard.workflows}
+                value={workflow}
+                selected={@dashboard.filters.workflow == workflow}
+              >
+                {format_workflow(workflow)}
+              </option>
+            </select>
+          </label>
+
+          <label class="squid-sonar-select-filter">
+            <span>Queue</span>
+            <select name="filters[queue]">
+              <option value="">All queues</option>
+              <option
+                :for={queue <- @dashboard.queues}
+                value={queue}
+                selected={@dashboard.filters.queue == queue}
+              >
+                {queue}
+              </option>
+            </select>
+          </label>
         </div>
+
+        <div class="squid-sonar-filter-utility-row">
+          <details
+            class="squid-sonar-advanced-filters"
+            open={@advanced_filters_open? or advanced_filters_active?(@dashboard.filters)}
+          >
+            <summary phx-click="toggle_advanced_filters">
+              <span>Advanced filters</span>
+              <span class="squid-sonar-advanced-filters-hint">Terminal, time, actions, deadline</span>
+            </summary>
+
+            <div class="squid-sonar-filter-controls squid-sonar-filter-controls-advanced">
+              <label class="squid-sonar-select-filter">
+                <span>Terminal</span>
+                <select name="filters[terminal]">
+                  <option value="all" selected={@dashboard.filters.terminal == :all}>
+                    All terminal states
+                  </option>
+                  <option
+                    :for={terminal <- @dashboard.terminal_statuses}
+                    value={terminal}
+                    selected={@dashboard.filters.terminal == terminal}
+                  >
+                    {human_status(terminal)}
+                  </option>
+                </select>
+              </label>
+
+              <label class="squid-sonar-select-filter">
+                <span>Time window</span>
+                <select name="filters[window]">
+                  <option
+                    :for={{value, label} <- time_window_options()}
+                    value={value}
+                    selected={@dashboard.filters.window == value}
+                  >
+                    {label}
+                  </option>
+                </select>
+              </label>
+
+              <label class="squid-sonar-select-filter">
+                <span>Manual action</span>
+                <select name="filters[manual]">
+                  <option value="all" selected={@dashboard.filters.manual == :all}>All runs</option>
+                  <option value="waiting" selected={@dashboard.filters.manual == :waiting}>
+                    Waiting for action
+                  </option>
+                  <option value="none" selected={@dashboard.filters.manual == :none}>
+                    No manual action
+                  </option>
+                </select>
+              </label>
+
+              <label class="squid-sonar-select-filter">
+                <span>Deadline</span>
+                <select name="filters[deadline]">
+                  <option
+                    :for={{value, label} <- deadline_filter_options()}
+                    value={value}
+                    selected={@dashboard.filters.deadline == value}
+                  >
+                    {label}
+                  </option>
+                </select>
+              </label>
+            </div>
+          </details>
+
+          <button
+            id="reset-run-filters"
+            type="button"
+            class="squid-sonar-reset-filters"
+            phx-click="reset_filters"
+          >
+            Reset filters
+          </button>
+        </div>
+      </div>
+
+      <div
+        :if={@saved_specs_open? and @saved_workflows != []}
+        class="squid-sonar-saved-workflows-slot"
+      >
+        {render_slot(@saved_workflows)}
       </div>
 
       <%= if @dashboard.runs == [] do %>
@@ -262,6 +484,21 @@ defmodule SquidSonarWeb.CoreComponents do
     """
   end
 
+  defp time_window_options do
+    [
+      {:all, "All time"},
+      {:"1h", "Last hour"},
+      {:"24h", "Last 24 hours"},
+      {:"7d", "Last 7 days"},
+      {:"30d", "Last 30 days"}
+    ]
+  end
+
+  defp advanced_filters_active?(filters) do
+    filters.terminal != :all or filters.window != :all or filters.manual != :all or
+      filters.deadline != :all
+  end
+
   attr :runs, :list, required: true
   attr :prefix, :string, default: ""
 
@@ -269,7 +506,7 @@ defmodule SquidSonarWeb.CoreComponents do
   def runs_table(assigns) do
     ~H"""
     <div class="squid-sonar-table-wrap">
-      <table class="squid-sonar-table">
+      <table class="squid-sonar-table squid-sonar-runs-table">
         <thead>
           <tr>
             <th>Workflow</th>
@@ -285,9 +522,25 @@ defmodule SquidSonarWeb.CoreComponents do
             <td>
               <div class="squid-sonar-run-title">
                 <.link navigate={run_path(@prefix, run.id)} class="squid-sonar-run-link">
-                  <span class="squid-sonar-primary">{format_workflow(run.workflow)}</span>
-                  <span class="squid-sonar-secondary">{run.id}</span>
+                  <span id={"run-workflow-#{run.id}"} class="squid-sonar-primary">
+                    {format_workflow(run.workflow)}
+                  </span>
+                  <span id={"run-id-#{run.id}"} class="squid-sonar-secondary">{run.id}</span>
                 </.link>
+                <div class="squid-sonar-copy-controls">
+                  <.copy_button
+                    id={"copy-run-workflow-#{run.id}"}
+                    target_id={"run-workflow-#{run.id}"}
+                    label="Copy name"
+                    text="Name"
+                  />
+                  <.copy_button
+                    id={"copy-run-id-#{run.id}"}
+                    target_id={"run-id-#{run.id}"}
+                    label="Copy ID"
+                    text="ID"
+                  />
+                </div>
               </div>
             </td>
             <td>{format_value(run.queue)}</td>
@@ -382,8 +635,18 @@ defmodule SquidSonarWeb.CoreComponents do
         <div>
           <.link navigate={@prefix <> "/"} class="squid-sonar-back-link">Back to runs</.link>
           <span class="squid-sonar-section-label">Run summary</span>
-          <h2>{format_workflow(@detail.summary.workflow)}</h2>
-          <p>{@detail.summary.id}</p>
+          <div class="squid-sonar-copy-row">
+            <h2 id="run-detail-workflow">{format_workflow(@detail.summary.workflow)}</h2>
+            <.copy_button
+              id="copy-run-detail-workflow"
+              target_id="run-detail-workflow"
+              label="Copy workflow"
+            />
+          </div>
+          <div class="squid-sonar-copy-row">
+            <p id="run-detail-id">{@detail.summary.id}</p>
+            <.copy_button id="copy-run-detail-id" target_id="run-detail-id" label="Copy run ID" />
+          </div>
         </div>
         <div class="squid-sonar-detail-header-actions">
           <.status_badge status={@detail.summary.status} />
@@ -399,6 +662,23 @@ defmodule SquidSonarWeb.CoreComponents do
           value={"run=#{@detail.summary.thread_revisions.run} dispatch=#{@detail.summary.thread_revisions.dispatch}"}
         />
       </div>
+
+      <section class="squid-sonar-detail-panel squid-sonar-summary-json-panel">
+        <.panel_heading
+          title="Run summary JSON"
+          description="Only values already visible in this run summary are included."
+          level={:h3}
+        >
+          <:actions>
+            <.copy_button
+              id="copy-run-summary-json"
+              target_id="run-summary-json"
+              label="Copy safe JSON"
+            />
+          </:actions>
+        </.panel_heading>
+        <pre id="run-summary-json" class="squid-sonar-workflow-raw-json"><code>{run_summary_json(@detail.summary)}</code></pre>
+      </section>
 
       <div class="squid-sonar-detail-columns">
         <section class="squid-sonar-detail-panel">
@@ -629,7 +909,14 @@ defmodule SquidSonarWeb.CoreComponents do
               </div>
             </div>
 
-            <pre class="squid-sonar-workflow-raw-json"><code>{raw_graph_inspection_json(@detail.graph_inspection)}</code></pre>
+            <div class="squid-sonar-workflow-raw-actions">
+              <.copy_button
+                id="copy-run-graph-json"
+                target_id="run-graph-json"
+                label="Copy safe JSON"
+              />
+            </div>
+            <pre id="run-graph-json" class="squid-sonar-workflow-raw-json"><code>{raw_graph_inspection_json(@detail.graph_inspection)}</code></pre>
           </div>
         <% else %>
           <%= if @detail.workflow_graph.nodes == [] do %>
@@ -1039,6 +1326,21 @@ defmodule SquidSonarWeb.CoreComponents do
     graph_inspection
     |> normalize_graph_inspection()
     |> Jason.encode!(pretty: true)
+  end
+
+  defp run_summary_json(summary) do
+    summary = %{
+      "current_step" => summary.current_step,
+      "id" => summary.id,
+      "queue" => summary.queue,
+      "status" => summary.status,
+      "terminal" => summary.terminal?,
+      "terminal_status" => summary.terminal_status,
+      "thread_revisions" => summary.thread_revisions,
+      "workflow" => format_workflow(summary.workflow)
+    }
+
+    Jason.encode!(summary, pretty: true)
   end
 
   defp normalize_graph_inspection(%_struct{} = value) do

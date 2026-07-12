@@ -7,6 +7,7 @@ defmodule SquidSonarWeb.PageLiveTest do
 
   alias Phoenix.LiveView.Socket
   alias Squidie.ReadModel.Listing.Summary
+  alias SquidSonar.Dashboard
   alias SquidSonar.FakeSquidieClient
   alias SquidSonarWeb.PageLive
 
@@ -57,7 +58,22 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert html =~ "Runtime dashboard"
     assert html =~ "phx-hook=\"SquidSonarTheme\""
     assert html =~ "Workflow runs"
+    assert html =~ "squid-sonar-runs-panel-heading"
+    assert html =~ "squid-sonar-runs-panel-filters"
+    assert html =~ "squid-sonar-section-heading-copy"
+    assert html =~ "squid-sonar-search-query"
+    assert html =~ "squid-sonar-search-prefix"
+    assert html =~ "Recent execution activity across the host runtime"
+    assert html =~ "Advanced filters"
+    assert html =~ "squid-sonar-filter-controls-primary"
+    assert html =~ "squid-sonar-filter-controls-advanced"
+    assert html =~ ~s(id="reset-run-filters")
     assert html =~ "squid-sonar-filter-toggle"
+    assert html =~ ~s(id="squid-sonar-run-jump-input")
+    assert html =~ ~s(placeholder="Jump to run ID…")
+    assert html =~ ~s(minlength="3")
+    assert html =~ "squid-sonar-run-jump-submit"
+    assert html =~ "squid-sonar-runs-table"
     assert html =~ "Filters"
     refute html =~ "squid-sonar-overview"
     refute html =~ "Status distribution"
@@ -113,7 +129,191 @@ defmodule SquidSonarWeb.PageLiveTest do
       |> rendered_to_string()
 
     assert html =~ "failing_checkout"
-    refute html =~ "completed_checkout"
+    refute html =~ ~s(href="/runs/completed_checkout-run")
+  end
+
+  test "loads shareable filters from URL params and renders selected controls" do
+    FakeSquidieClient.put_list_runs(
+      {:ok,
+       [
+         summary(:failed, "billing_checkout", "billing", indexed_at: DateTime.utc_now()),
+         summary(:completed, "shipping_checkout", "shipping")
+       ]}
+    )
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, filtered_socket} =
+      PageLive.handle_params(
+        %{
+          "workflow" => "billing_checkout",
+          "status" => "failed",
+          "queue" => "billing",
+          "window" => "24h",
+          "run_id" => "billing",
+          "page_size" => "25"
+        },
+        "/?workflow=billing_checkout&status=failed",
+        socket
+      )
+
+    html = rendered_to_string(PageLive.render(filtered_socket.assigns))
+
+    assert html =~ ~s(href="/runs/billing_checkout-run")
+    refute html =~ ~s(href="/runs/shipping_checkout-run")
+    assert html =~ ~s(name="filters[workflow]")
+    assert html =~ ~s(value="billing_checkout" selected)
+    assert html =~ ~s(name="filters[queue]")
+    assert html =~ ~s(value="billing" selected)
+    assert html =~ ~s(name="filters[window]")
+    assert html =~ ~r/<details[^>]*squid-sonar-advanced-filters[^>]*open/
+    assert html =~ ~s(title="Copy name")
+    assert html =~ ~s(title="Copy ID")
+    assert html =~ ~r/>\s*Name\s*</
+    assert html =~ ~r/>\s*ID\s*</
+
+    [{name_position, _length}] = Regex.run(~r/>\s*Name\s*</, html, return: :index)
+    [{id_position, _length}] = Regex.run(~r/>\s*ID\s*</, html, return: :index)
+    assert name_position < id_position
+    assert filtered_socket.assigns.dashboard.page_size == 25
+  end
+
+  test "filter and pagination events patch stable URLs while preserving state" do
+    runs =
+      for index <- 1..30 do
+        summary(:failed, "billing_checkout", "billing",
+          run_id: "billing-checkout-#{index}",
+          indexed_at: DateTime.utc_now()
+        )
+      end
+
+    FakeSquidieClient.put_list_runs({:ok, runs})
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, assign(%Socket{}, :prefix, "/sonar"))
+
+    {:noreply, filtered_socket} =
+      PageLive.handle_event(
+        "filter",
+        %{
+          "filters" => %{
+            "workflow" => "billing_checkout",
+            "status" => "failed",
+            "queue" => "billing",
+            "window" => "24h"
+          },
+          "page_size" => "25"
+        },
+        socket
+      )
+
+    assert {:live, :patch, %{to: filter_path}} = filtered_socket.redirected
+    assert filter_path =~ "/sonar/?"
+    assert filter_path =~ "workflow=billing_checkout"
+    assert filter_path =~ "status=failed"
+    assert filter_path =~ "queue=billing"
+    assert filter_path =~ "window=24h"
+    assert filter_path =~ "page_size=25"
+    refute filter_path =~ "page=1"
+
+    patched_socket = %{filtered_socket | redirected: nil}
+
+    {:noreply, paginated_socket} =
+      PageLive.handle_event("paginate", %{"page" => "2"}, patched_socket)
+
+    assert {:live, :patch, %{to: page_path}} = paginated_socket.redirected
+    assert page_path =~ "workflow=billing_checkout"
+    assert page_path =~ "page=2"
+    assert page_path =~ "page_size=25"
+  end
+
+  test "keeps advanced filters open across dashboard refreshes" do
+    FakeSquidieClient.put_list_runs({:ok, [summary(:running, "checkout", "default")]})
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+    {:noreply, open_socket} = PageLive.handle_event("toggle_advanced_filters", %{}, socket)
+
+    assert open_socket.assigns.advanced_filters_open?
+
+    assert rendered_to_string(PageLive.render(open_socket.assigns)) =~
+             ~r/<details[^>]*squid-sonar-advanced-filters[^>]*open/
+
+    {:noreply, refreshed_socket} = PageLive.handle_event("refresh", %{}, open_socket)
+
+    assert refreshed_socket.assigns.advanced_filters_open?
+
+    assert rendered_to_string(PageLive.render(refreshed_socket.assigns)) =~
+             ~r/<details[^>]*squid-sonar-advanced-filters[^>]*open/
+  end
+
+  test "resets every filter and patches the canonical URL" do
+    FakeSquidieClient.put_list_runs({:ok, [summary(:failed, "checkout", "priority")]})
+
+    {:ok, socket} =
+      PageLive.mount(
+        %{
+          "status" => "failed",
+          "workflow" => "checkout",
+          "queue" => "priority",
+          "window" => "24h",
+          "query" => "checkout"
+        },
+        %{},
+        assign(%Socket{}, :prefix, "/sonar")
+      )
+
+    {:noreply, open_socket} = PageLive.handle_event("toggle_advanced_filters", %{}, socket)
+    {:noreply, reset_socket} = PageLive.handle_event("reset_filters", %{}, open_socket)
+
+    assert reset_socket.assigns.dashboard.filters == Dashboard.normalize_params(%{}).filters
+    refute reset_socket.assigns.advanced_filters_open?
+    assert {:live, :patch, %{to: "/sonar/"}} = reset_socket.redirected
+  end
+
+  test "handle_params patches invalid and out-of-range state to its canonical URL" do
+    FakeSquidieClient.put_list_runs({:ok, [summary(:running, "checkout", "default")]})
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, assign(%Socket{}, :prefix, "/sonar"))
+
+    {:noreply, canonical_socket} =
+      PageLive.handle_params(
+        %{"status" => "all", "page" => "999", "ignored" => "value"},
+        "/sonar/?status=all&page=999&ignored=value",
+        socket
+      )
+
+    assert {:live, :patch, %{to: "/sonar/"}} = canonical_socket.redirected
+    assert canonical_socket.assigns.dashboard.page == 1
+  end
+
+  test "jumps only when a run id prefix resolves uniquely" do
+    FakeSquidieClient.put_list_runs(
+      {:ok,
+       [
+         summary(:running, "checkout", "default", run_id: "run-alpha-001"),
+         summary(:running, "checkout", "default", run_id: "run-alpha-002"),
+         summary(:running, "billing", "default", run_id: "run-beta-001")
+       ]}
+    )
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, assign(%Socket{}, :prefix, "/sonar"))
+
+    {:noreply, jumped_socket} =
+      PageLive.handle_event("jump_to_run", %{"jump" => %{"run_id" => "run-beta"}}, socket)
+
+    assert {:live, :redirect, %{to: "/sonar/runs/run-beta-001"}} = jumped_socket.redirected
+
+    {:noreply, ambiguous_socket} =
+      PageLive.handle_event("jump_to_run", %{"jump" => %{"run_id" => "run-alpha"}}, socket)
+
+    assert ambiguous_socket.assigns.jump_error ==
+             "Run ID prefix is ambiguous. Enter more characters."
+
+    error_html = rendered_to_string(PageLive.render(ambiguous_socket.assigns))
+    assert error_html =~ ~s(id="squid-sonar-run-jump-error")
+    assert error_html =~ ~s(aria-invalid="true")
+    assert error_html =~ ~s(aria-describedby="squid-sonar-run-jump-error")
+
+    refute ambiguous_socket.redirected
   end
 
   test "renders and filters deadline states" do
@@ -150,7 +350,7 @@ defmodule SquidSonarWeb.PageLiveTest do
       |> rendered_to_string()
 
     assert filtered_html =~ "escalated_checkout"
-    refute filtered_html =~ "due_soon_checkout"
+    refute filtered_html =~ ~s(href="/runs/due_soon_checkout-run")
   end
 
   test "paginates runs through the dashboard boundary" do
@@ -173,7 +373,7 @@ defmodule SquidSonarWeb.PageLiveTest do
 
     assert html =~ "2 / 2"
     assert html =~ "run-2"
-    refute html =~ "run-12"
+    refute html =~ ~s(href="/runs/run-12-run")
   end
 
   test "sets dashboard theme without reloading run data" do
@@ -576,15 +776,25 @@ defmodule SquidSonarWeb.PageLiveTest do
         }
       )
 
-    html =
+    closed_html =
       socket.assigns
       |> PageLive.render()
       |> rendered_to_string()
 
-    assert html =~ "Saved workflow specs"
-    assert html =~ "Checkout runtime spec"
-    assert html =~ "Approved"
-    assert html =~ ~s(href="/sonar/saved-specs/checkout_runtime_spec")
+    assert closed_html =~ ~s(id="saved-workflows-toggle")
+    assert closed_html =~ ~s(aria-expanded="false")
+    refute closed_html =~ ~s(id="saved-workflows-panel")
+
+    {:noreply, open_socket} = PageLive.handle_event("toggle_saved_specs", %{}, socket)
+    open_html = rendered_to_string(PageLive.render(open_socket.assigns))
+
+    assert open_html =~ ~s(aria-expanded="true")
+    assert open_html =~ ~s(id="saved-workflows-panel")
+    assert open_html =~ "squid-sonar-saved-workflows-content"
+    assert open_html =~ "Saved workflow specs"
+    assert open_html =~ "Checkout runtime spec"
+    assert open_html =~ "Approved"
+    assert open_html =~ ~s(href="/sonar/saved-specs/checkout_runtime_spec")
   end
 
   test "does not render saved workflow specs without host configuration" do
@@ -669,7 +879,7 @@ defmodule SquidSonarWeb.PageLiveTest do
 
   defp summary(status, workflow_name, queue, attrs \\ []) do
     %Summary{
-      run_id: "#{workflow_name}-run",
+      run_id: Keyword.get(attrs, :run_id, "#{workflow_name}-run"),
       workflow: workflow_name,
       queue: queue,
       status: status,

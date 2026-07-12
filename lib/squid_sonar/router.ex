@@ -88,6 +88,7 @@ defmodule SquidSonar.Router do
 
           live "/", SquidSonarWeb.PageLive, :index, route_opts
           live "/queues", SquidSonarWeb.OperatorQueuesLive, :index, route_opts
+          live "/settings", SquidSonarWeb.SettingsLive, :index, route_opts
           live "/saved-specs/:key", SquidSonarWeb.SavedSpecLive, :show, route_opts
           live "/runs/:id", SquidSonarWeb.RunLive, :show, route_opts
         end

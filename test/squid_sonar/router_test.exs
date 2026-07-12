@@ -48,6 +48,7 @@ defmodule SquidSonar.RouterTest do
 
     assert Enum.any?(routes, &(&1.path == "/sonar" and &1.plug == Phoenix.LiveView.Plug))
     assert Enum.any?(routes, &(&1.path == "/sonar/queues" and &1.plug == Phoenix.LiveView.Plug))
+    assert Enum.any?(routes, &(&1.path == "/sonar/settings" and &1.plug == Phoenix.LiveView.Plug))
     assert Enum.any?(routes, &(&1.path == "/sonar/runs/:id" and &1.plug == Phoenix.LiveView.Plug))
 
     assert Enum.any?(

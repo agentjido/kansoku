@@ -21,3 +21,6 @@ erl_crash.dump
 # Local environment.
 .env
 .env.*
+
+# Codex
+.codex

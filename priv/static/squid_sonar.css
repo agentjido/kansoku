@@ -59,6 +59,7 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 }
 
 .squid-sonar-shell {
+  --squid-sonar-topbar-control-height: 32px;
   background: var(--squid-sonar-bg);
   box-sizing: border-box;
   color: var(--squid-sonar-text);
@@ -154,6 +155,99 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   display: flex;
 }
 
+.squid-sonar-run-jump {
+  min-width: 220px;
+  position: relative;
+}
+
+.squid-sonar-run-jump-control {
+  align-items: stretch;
+  background: var(--squid-sonar-surface-muted);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 8px;
+  display: flex;
+  height: var(--squid-sonar-topbar-control-height);
+  overflow: hidden;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.squid-sonar-run-jump-control:focus-within {
+  border-color: var(--squid-sonar-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--squid-sonar-focus), transparent 78%);
+}
+
+.squid-sonar-run-jump.is-invalid .squid-sonar-run-jump-control {
+  border-color: var(--squid-sonar-danger);
+}
+
+.squid-sonar-run-jump-field {
+  align-items: center;
+  color: var(--squid-sonar-muted);
+  display: flex;
+  flex: 1 1 auto;
+  gap: 7px;
+  min-width: 0;
+  padding-left: 10px;
+}
+
+.squid-sonar-run-jump-field svg {
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
+}
+
+.squid-sonar-run-jump-field input {
+  background: transparent;
+  border: 0;
+  color: var(--squid-sonar-text);
+  font: inherit;
+  font-size: 12px;
+  min-width: 0;
+  outline: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.squid-sonar-run-jump-field input::placeholder {
+  color: var(--squid-sonar-subtle);
+}
+
+.squid-sonar-run-jump-submit {
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--squid-sonar-border);
+  color: var(--squid-sonar-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 10px;
+}
+
+.squid-sonar-run-jump-submit:hover,
+.squid-sonar-run-jump-submit:focus-visible {
+  background: var(--squid-sonar-surface);
+  color: var(--squid-sonar-text);
+  outline: 0;
+}
+
+.squid-sonar-jump-error {
+  background: var(--squid-sonar-alert-bg);
+  border: 1px solid var(--squid-sonar-alert-border);
+  border-radius: 6px;
+  color: var(--squid-sonar-text);
+  font-size: 11px;
+  line-height: 1.35;
+  max-width: 280px;
+  padding: 6px 8px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+}
+
 .squid-sonar-brand {
   gap: 10px;
   min-width: 0;
@@ -173,7 +267,124 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 }
 
 .squid-sonar-topbar-actions {
+  flex-wrap: wrap;
   gap: 10px;
+  justify-content: flex-end;
+}
+
+.squid-sonar-operator-nav {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.squid-sonar-operator-nav-link {
+  border-radius: 5px;
+  color: var(--squid-sonar-muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+
+.squid-sonar-operator-nav-link:hover,
+.squid-sonar-operator-nav-link:focus-visible,
+.squid-sonar-operator-nav-link.is-active {
+  background: var(--squid-sonar-surface-raised);
+  color: var(--squid-sonar-text);
+}
+
+.squid-sonar-copy-button {
+  background: transparent;
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 5px;
+  color: var(--squid-sonar-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 8px;
+}
+
+.squid-sonar-copy-button:hover,
+.squid-sonar-copy-button:focus-visible {
+  border-color: var(--squid-sonar-focus);
+  color: var(--squid-sonar-text);
+}
+
+.squid-sonar-copy-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.squid-sonar-copy-row p {
+  margin: 0;
+}
+
+.squid-sonar-copy-row h2 {
+  margin-bottom: 0;
+}
+
+.squid-sonar-copy-controls,
+.squid-sonar-workflow-raw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.squid-sonar-copy-controls .squid-sonar-copy-button {
+  border-color: transparent;
+  font-size: 10px;
+  opacity: 0.65;
+  padding: 2px 4px;
+}
+
+.squid-sonar-copy-controls .squid-sonar-copy-button:hover,
+.squid-sonar-copy-controls .squid-sonar-copy-button:focus-visible {
+  background: var(--squid-sonar-surface-muted);
+  opacity: 1;
+}
+
+.squid-sonar-workflow-raw-actions {
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.squid-sonar-settings-content {
+  display: grid;
+  gap: var(--squid-sonar-space-4);
+}
+
+.squid-sonar-settings-heading h2,
+.squid-sonar-settings-heading p {
+  margin-bottom: 0;
+}
+
+.squid-sonar-settings-grid {
+  display: grid;
+  gap: var(--squid-sonar-space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.squid-sonar-setting {
+  background: var(--squid-sonar-surface);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 7px;
+  display: grid;
+  gap: 6px;
+  padding: var(--squid-sonar-space-4);
+}
+
+.squid-sonar-setting span {
+  color: var(--squid-sonar-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.squid-sonar-settings-json-panel {
+  padding: var(--squid-sonar-space-4);
 }
 
 .squid-sonar-flash-stack {
@@ -290,7 +501,12 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   border-radius: 8px;
   display: inline-flex;
   gap: 1px;
+  height: var(--squid-sonar-topbar-control-height);
   padding: 2px;
+}
+
+.squid-sonar-start-workflow-button {
+  height: var(--squid-sonar-topbar-control-height);
 }
 
 .squid-sonar-icon-button {
@@ -441,10 +657,96 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 
 .squid-sonar-filter-controls {
   align-items: flex-end;
-  display: flex;
+  display: grid;
   gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   min-width: 0;
   width: 100%;
+}
+
+.squid-sonar-filter-controls-primary {
+  grid-template-columns:
+    minmax(0, 1.35fr) minmax(0, 0.8fr) repeat(2, minmax(0, 1fr));
+}
+
+.squid-sonar-runs-panel-filters {
+  border-bottom: 1px solid var(--squid-sonar-border);
+  min-width: 0;
+  padding: var(--squid-sonar-space-4) var(--squid-sonar-space-5);
+}
+
+.squid-sonar-runs-panel-filters .squid-sonar-search,
+.squid-sonar-runs-panel-filters .squid-sonar-select-filter {
+  min-width: 0;
+}
+
+.squid-sonar-runs-panel-heading {
+  align-items: flex-start;
+}
+
+.squid-sonar-filter-utility-row {
+  position: relative;
+}
+
+.squid-sonar-advanced-filters {
+  border-top: 1px solid var(--squid-sonar-border);
+  margin-top: var(--squid-sonar-space-3);
+  padding-top: var(--squid-sonar-space-3);
+}
+
+.squid-sonar-advanced-filters summary {
+  padding-right: 96px;
+}
+
+.squid-sonar-reset-filters {
+  background: transparent;
+  border: 0;
+  color: var(--squid-sonar-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 2px 0;
+  position: absolute;
+  right: 0;
+  top: var(--squid-sonar-space-3);
+}
+
+.squid-sonar-reset-filters:hover,
+.squid-sonar-reset-filters:focus-visible {
+  color: var(--squid-sonar-text);
+}
+
+.squid-sonar-advanced-filters summary {
+  align-items: center;
+  color: var(--squid-sonar-text);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  list-style: none;
+  margin-bottom: 0;
+}
+
+.squid-sonar-advanced-filters summary::before {
+  content: "+";
+  font-size: 15px;
+  line-height: 1;
+}
+
+.squid-sonar-advanced-filters[open] summary::before {
+  content: "−";
+}
+
+.squid-sonar-advanced-filters[open] summary {
+  margin-bottom: var(--squid-sonar-space-3);
+}
+
+.squid-sonar-advanced-filters-hint {
+  color: var(--squid-sonar-muted);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .squid-sonar-select-filter {
@@ -705,14 +1007,14 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 }
 
 .squid-sonar-panel-heading {
-  align-items: end;
+  align-items: center;
   background: var(--squid-sonar-surface);
   border-bottom: 1px solid var(--squid-sonar-border);
   display: flex;
   gap: var(--squid-sonar-space-4);
   justify-content: space-between;
-  min-height: 68px;
-  padding: var(--squid-sonar-space-4) var(--squid-sonar-space-5);
+  min-height: 0;
+  padding: var(--squid-sonar-space-2) var(--squid-sonar-space-5);
 }
 
 .squid-sonar-panel-title {
@@ -749,6 +1051,27 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   color: var(--squid-sonar-muted);
   font-size: 12px;
   line-height: 1.5;
+  margin: var(--squid-sonar-space-1) 0 0;
+}
+
+.squid-sonar-panel-heading h2,
+.squid-sonar-panel-heading h3 {
+  font-size: 16px;
+  font-weight: 620;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.squid-sonar-section-heading-copy .squid-sonar-eyebrow {
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 0 0 2px;
+}
+
+.squid-sonar-panel-heading-description {
+  color: var(--squid-sonar-muted);
+  font-size: 12px;
+  line-height: 1.4;
   margin: var(--squid-sonar-space-1) 0 0;
 }
 
@@ -811,6 +1134,30 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 .squid-sonar-table th:nth-child(6),
 .squid-sonar-table td:nth-child(6) {
   width: 17%;
+}
+
+.squid-sonar-runs-table th:first-child,
+.squid-sonar-runs-table td:first-child {
+  width: 40%;
+}
+
+.squid-sonar-runs-table th:nth-child(2),
+.squid-sonar-runs-table td:nth-child(2),
+.squid-sonar-runs-table th:nth-child(3),
+.squid-sonar-runs-table td:nth-child(3),
+.squid-sonar-runs-table th:nth-child(4),
+.squid-sonar-runs-table td:nth-child(4) {
+  width: 10%;
+}
+
+.squid-sonar-runs-table th:nth-child(5),
+.squid-sonar-runs-table td:nth-child(5) {
+  width: 14%;
+}
+
+.squid-sonar-runs-table th:nth-child(6),
+.squid-sonar-runs-table td:nth-child(6) {
+  width: 16%;
 }
 
 .squid-sonar-table tbody tr {
@@ -2024,6 +2371,18 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   overflow: hidden;
 }
 
+.squid-sonar-saved-workflows-slot {
+  padding: var(--squid-sonar-space-3) var(--squid-sonar-space-5);
+}
+
+.squid-sonar-saved-workflows-content {
+  background: var(--squid-sonar-surface);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .squid-sonar-saved-specs-list {
   display: grid;
 }
@@ -2271,8 +2630,11 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   }
 
   .squid-sonar-filter-controls {
-    align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .squid-sonar-filter-controls-primary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .squid-sonar-select-filter {
@@ -2282,7 +2644,8 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 
   .squid-sonar-detail-grid,
   .squid-sonar-detail-columns,
-  .squid-sonar-saved-spec-grid {
+  .squid-sonar-saved-spec-grid,
+  .squid-sonar-settings-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2331,12 +2694,32 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   }
 
   .squid-sonar-topbar-actions {
+    align-items: stretch;
+    flex-direction: column;
     justify-content: space-between;
+  }
+
+  .squid-sonar-run-jump {
+    width: 100%;
+  }
+
+  .squid-sonar-jump-error {
+    margin-top: var(--squid-sonar-space-1);
+    max-width: none;
+    position: static;
+  }
+
+  .squid-sonar-operator-nav {
+    flex-wrap: wrap;
   }
 
   .squid-sonar-content {
     padding-left: var(--squid-sonar-space-3);
     padding-right: var(--squid-sonar-space-3);
+  }
+
+  .squid-sonar-saved-workflows-slot {
+    padding: var(--squid-sonar-space-3);
   }
 
   .squid-sonar-queue-page-heading {
@@ -2360,6 +2743,18 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 
   .squid-sonar-panel-heading {
     grid-template-columns: 1fr;
+  }
+
+  .squid-sonar-filter-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .squid-sonar-filter-controls-primary {
+    grid-template-columns: 1fr;
+  }
+
+  .squid-sonar-advanced-filters-hint {
+    display: none;
   }
 
   .squid-sonar-panel-tools {

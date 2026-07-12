@@ -1340,9 +1340,18 @@ defmodule SquidSonarWeb.RunLiveTest do
     refute html =~ "output-secret"
     refute html =~ "diagnostic-secret"
     refute html =~ "evidence-secret"
+    assert html =~ ~s(id="run-summary-json")
+    assert html =~ ~s(data-copy-target="run-summary-json")
     assert html =~ ~s(phx-click="approve")
     assert html =~ ~s(phx-click="reject")
     assert html =~ ~s(phx-click="cancel")
+
+    {:noreply, raw_socket} = RunLive.handle_event("show_raw_workflow_panel", %{}, loaded_socket)
+    raw_html = rendered_to_string(RunLive.render(raw_socket.assigns))
+
+    assert raw_html =~ ~s(data-copy-target="run-graph-json")
+    refute raw_html =~ "graph-secret"
+    refute raw_html =~ "output-secret"
 
     assert {:noreply, approved_socket} =
              RunLive.handle_event("approve", %{"run-id" => "restricted-run"}, loaded_socket)

@@ -51,9 +51,7 @@ defmodule SquidSonarWeb.OperatorQueuesLive do
           </div>
         </.link>
         <div class="squid-sonar-topbar-actions">
-          <.link navigate={@prefix <> "/"} class="squid-sonar-control-button">
-            Recent runs
-          </.link>
+          <.operator_nav prefix={@prefix} current={:queues} />
           <.theme_switcher theme={@theme} />
         </div>
       </header>
@@ -100,12 +98,10 @@ defmodule SquidSonarWeb.OperatorQueuesLive do
   defp manual_actions_panel(assigns) do
     ~H"""
     <section id="manual-actions" class="squid-sonar-panel squid-sonar-queue-panel">
-      <div class="squid-sonar-panel-heading">
-        <div class="squid-sonar-panel-title">
-          <h2>Manual actions</h2>
-          <p>Paused runs waiting for approval or an explicit resume decision.</p>
-        </div>
-      </div>
+      <.panel_heading
+        title="Manual actions"
+        description="Paused runs waiting for approval or an explicit resume decision."
+      />
 
       <div class="squid-sonar-table-wrap">
         <table class="squid-sonar-table squid-sonar-queue-table">
@@ -154,12 +150,10 @@ defmodule SquidSonarWeb.OperatorQueuesLive do
   defp schedules_panel(assigns) do
     ~H"""
     <section id="schedules" class="squid-sonar-panel squid-sonar-queue-panel">
-      <div class="squid-sonar-panel-heading">
-        <div class="squid-sonar-panel-title">
-          <h2>Schedules</h2>
-          <p>Recurring triggers declared by workflows approved for this operator surface.</p>
-        </div>
-      </div>
+      <.panel_heading
+        title="Schedules"
+        description="Recurring triggers declared by workflows approved for this operator surface."
+      />
 
       <%= if @schedules == [] do %>
         <div class="squid-sonar-empty">

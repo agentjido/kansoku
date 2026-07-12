@@ -78,6 +78,12 @@ The UI includes:
 
 - Recent workflow runs sorted by update time
 - Status counts and filters
+- Shareable URL filters for workflow, status, terminal state, queue, time window,
+  run ID prefix, deadline state, and pending manual actions
+- Direct navigation by an exact or unambiguous run ID prefix
+- Shared navigation for recent runs, workflows, manual actions, and read-only
+  runtime settings
+- Copy controls for visible run identifiers and safely projected settings JSON
 - Search across workflow, trigger, step, status, and run ID
 - Page size controls and pagination
 - Run detail pages with diagnosis, history counts, last error, and workflow
@@ -202,6 +208,11 @@ The `:auditor` and `:external` policies are read-only.
 Visit `/sonar/queues` to review all currently paused manual boundaries and cron
 triggers declared by `runtime_specs`. Scheduler enablement, future windows, and
 activation delivery remain host-owned and are not inferred by SquidSonar.
+
+Visit `/sonar/settings` to inspect a read-only, allowlisted runtime projection.
+It reports package versions, transport and access labels, and catalog counts;
+actors, policy options, registry contents, modules, paths, and host configuration
+values are never rendered.
 
 `runtime_specs` and `action_registry` enable a start drawer on the `/sonar`
 dashboard. `runtime_specs` is a host-approved catalog of workflows that an
