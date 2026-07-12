@@ -585,10 +585,37 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   align-items: flex-start;
 }
 
+.squid-sonar-filter-utility-row {
+  position: relative;
+}
+
 .squid-sonar-advanced-filters {
   border-top: 1px solid var(--squid-sonar-border);
   margin-top: var(--squid-sonar-space-3);
   padding-top: var(--squid-sonar-space-3);
+}
+
+.squid-sonar-advanced-filters summary {
+  padding-right: 96px;
+}
+
+.squid-sonar-reset-filters {
+  background: transparent;
+  border: 0;
+  color: var(--squid-sonar-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  padding: 2px 0;
+  position: absolute;
+  right: 0;
+  top: var(--squid-sonar-space-3);
+}
+
+.squid-sonar-reset-filters:hover,
+.squid-sonar-reset-filters:focus-visible {
+  color: var(--squid-sonar-text);
 }
 
 .squid-sonar-advanced-filters summary {

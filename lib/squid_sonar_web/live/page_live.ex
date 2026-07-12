@@ -156,6 +156,17 @@ defmodule SquidSonarWeb.PageLive do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("reset_filters", _params, socket) do
+    dashboard_params =
+      Dashboard.normalize_params(%{"page_size" => socket.assigns.dashboard.page_size})
+
+    {:noreply,
+     socket
+     |> assign(:advanced_filters_open?, false)
+     |> assign_dashboard_and_patch(dashboard_params)}
+  end
+
+  @impl Phoenix.LiveView
   def handle_event("open_runtime_spec_drawer", _params, socket) do
     {:noreply,
      socket

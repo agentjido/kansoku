@@ -381,72 +381,83 @@ defmodule SquidSonarWeb.CoreComponents do
           </label>
         </div>
 
-        <details
-          class="squid-sonar-advanced-filters"
-          open={@advanced_filters_open? or advanced_filters_active?(@dashboard.filters)}
-        >
-          <summary phx-click="toggle_advanced_filters">
-            <span>Advanced filters</span>
-            <span class="squid-sonar-advanced-filters-hint">Terminal, time, actions, deadline</span>
-          </summary>
+        <div class="squid-sonar-filter-utility-row">
+          <details
+            class="squid-sonar-advanced-filters"
+            open={@advanced_filters_open? or advanced_filters_active?(@dashboard.filters)}
+          >
+            <summary phx-click="toggle_advanced_filters">
+              <span>Advanced filters</span>
+              <span class="squid-sonar-advanced-filters-hint">Terminal, time, actions, deadline</span>
+            </summary>
 
-          <div class="squid-sonar-filter-controls squid-sonar-filter-controls-advanced">
-            <label class="squid-sonar-select-filter">
-              <span>Terminal</span>
-              <select name="filters[terminal]">
-                <option value="all" selected={@dashboard.filters.terminal == :all}>
-                  All terminal states
-                </option>
-                <option
-                  :for={terminal <- @dashboard.terminal_statuses}
-                  value={terminal}
-                  selected={@dashboard.filters.terminal == terminal}
-                >
-                  {human_status(terminal)}
-                </option>
-              </select>
-            </label>
+            <div class="squid-sonar-filter-controls squid-sonar-filter-controls-advanced">
+              <label class="squid-sonar-select-filter">
+                <span>Terminal</span>
+                <select name="filters[terminal]">
+                  <option value="all" selected={@dashboard.filters.terminal == :all}>
+                    All terminal states
+                  </option>
+                  <option
+                    :for={terminal <- @dashboard.terminal_statuses}
+                    value={terminal}
+                    selected={@dashboard.filters.terminal == terminal}
+                  >
+                    {human_status(terminal)}
+                  </option>
+                </select>
+              </label>
 
-            <label class="squid-sonar-select-filter">
-              <span>Time window</span>
-              <select name="filters[window]">
-                <option
-                  :for={{value, label} <- time_window_options()}
-                  value={value}
-                  selected={@dashboard.filters.window == value}
-                >
-                  {label}
-                </option>
-              </select>
-            </label>
+              <label class="squid-sonar-select-filter">
+                <span>Time window</span>
+                <select name="filters[window]">
+                  <option
+                    :for={{value, label} <- time_window_options()}
+                    value={value}
+                    selected={@dashboard.filters.window == value}
+                  >
+                    {label}
+                  </option>
+                </select>
+              </label>
 
-            <label class="squid-sonar-select-filter">
-              <span>Manual action</span>
-              <select name="filters[manual]">
-                <option value="all" selected={@dashboard.filters.manual == :all}>All runs</option>
-                <option value="waiting" selected={@dashboard.filters.manual == :waiting}>
-                  Waiting for action
-                </option>
-                <option value="none" selected={@dashboard.filters.manual == :none}>
-                  No manual action
-                </option>
-              </select>
-            </label>
+              <label class="squid-sonar-select-filter">
+                <span>Manual action</span>
+                <select name="filters[manual]">
+                  <option value="all" selected={@dashboard.filters.manual == :all}>All runs</option>
+                  <option value="waiting" selected={@dashboard.filters.manual == :waiting}>
+                    Waiting for action
+                  </option>
+                  <option value="none" selected={@dashboard.filters.manual == :none}>
+                    No manual action
+                  </option>
+                </select>
+              </label>
 
-            <label class="squid-sonar-select-filter">
-              <span>Deadline</span>
-              <select name="filters[deadline]">
-                <option
-                  :for={{value, label} <- deadline_filter_options()}
-                  value={value}
-                  selected={@dashboard.filters.deadline == value}
-                >
-                  {label}
-                </option>
-              </select>
-            </label>
-          </div>
-        </details>
+              <label class="squid-sonar-select-filter">
+                <span>Deadline</span>
+                <select name="filters[deadline]">
+                  <option
+                    :for={{value, label} <- deadline_filter_options()}
+                    value={value}
+                    selected={@dashboard.filters.deadline == value}
+                  >
+                    {label}
+                  </option>
+                </select>
+              </label>
+            </div>
+          </details>
+
+          <button
+            id="reset-run-filters"
+            type="button"
+            class="squid-sonar-reset-filters"
+            phx-click="reset_filters"
+          >
+            Reset filters
+          </button>
+        </div>
       </div>
 
       <div

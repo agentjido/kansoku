@@ -7,6 +7,7 @@ defmodule SquidSonarWeb.PageLiveTest do
 
   alias Phoenix.LiveView.Socket
   alias Squidie.ReadModel.Listing.Summary
+  alias SquidSonar.Dashboard
   alias SquidSonar.FakeSquidieClient
   alias SquidSonarWeb.PageLive
 
@@ -66,6 +67,7 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert html =~ "Advanced filters"
     assert html =~ "squid-sonar-filter-controls-primary"
     assert html =~ "squid-sonar-filter-controls-advanced"
+    assert html =~ ~s(id="reset-run-filters")
     assert html =~ "squid-sonar-filter-toggle"
     assert html =~ "Filters"
     refute html =~ "squid-sonar-overview"
@@ -236,6 +238,30 @@ defmodule SquidSonarWeb.PageLiveTest do
 
     assert rendered_to_string(PageLive.render(refreshed_socket.assigns)) =~
              ~r/<details[^>]*squid-sonar-advanced-filters[^>]*open/
+  end
+
+  test "resets every filter and patches the canonical URL" do
+    FakeSquidieClient.put_list_runs({:ok, [summary(:failed, "checkout", "priority")]})
+
+    {:ok, socket} =
+      PageLive.mount(
+        %{
+          "status" => "failed",
+          "workflow" => "checkout",
+          "queue" => "priority",
+          "window" => "24h",
+          "query" => "checkout"
+        },
+        %{},
+        assign(%Socket{}, :prefix, "/sonar")
+      )
+
+    {:noreply, open_socket} = PageLive.handle_event("toggle_advanced_filters", %{}, socket)
+    {:noreply, reset_socket} = PageLive.handle_event("reset_filters", %{}, open_socket)
+
+    assert reset_socket.assigns.dashboard.filters == Dashboard.normalize_params(%{}).filters
+    refute reset_socket.assigns.advanced_filters_open?
+    assert {:live, :patch, %{to: "/sonar/"}} = reset_socket.redirected
   end
 
   test "handle_params patches invalid and out-of-range state to its canonical URL" do

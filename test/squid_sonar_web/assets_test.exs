@@ -26,6 +26,7 @@ defmodule SquidSonarWeb.AssetsTest do
              ~r/\.squid-sonar-filter-controls\s*\{[^}]*grid-template-columns: repeat\(4,/s
 
     assert conn.resp_body =~ ".squid-sonar-advanced-filters"
+    assert conn.resp_body =~ ".squid-sonar-reset-filters"
     assert conn.resp_body =~ ".squid-sonar-saved-workflows-slot"
     assert conn.resp_body =~ ".squid-sonar-saved-workflows-content"
 
