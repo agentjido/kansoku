@@ -27,6 +27,8 @@ defmodule SquidSonarWeb.RunLiveTest do
   import Phoenix.LiveViewTest
 
   alias Phoenix.LiveView.Socket
+  alias Squidie.ReadModel.Timeline
+  alias Squidie.ReadModel.Timeline.Event
   alias SquidSonar.FakeSquidieClient
   alias SquidSonarWeb.RunLive
 
@@ -137,6 +139,213 @@ defmodule SquidSonarWeb.RunLiveTest do
     assert html =~ "squid-sonar-workflow-graph"
     assert html =~ "squid-sonar-workflow-node-deadline"
     refute html =~ "squid-sonar-workflow-panel-actions"
+  end
+
+  test "selects run detail tabs from stable URL params and defaults invalid tabs" do
+    put_basic_run("run-tabs")
+
+    FakeSquidieClient.put_inspect_run_timeline({:ok, timeline("run-tabs", [])})
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, timeline_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-tabs", "tab" => "timeline"},
+        "/runs/run-tabs?tab=timeline",
+        mounted_socket
+      )
+
+    assert timeline_socket.assigns.active_tab == :timeline
+
+    timeline_html = rendered_to_string(RunLive.render(timeline_socket.assigns))
+
+    assert timeline_html =~ ~s(id="run-tab-timeline")
+    assert timeline_html =~ ~s(href="/runs/run-tabs?tab=timeline")
+    assert timeline_html =~ ~s(id="run-tab-panel-timeline")
+    assert timeline_html =~ ~s(aria-label="Run detail views")
+    assert timeline_html =~ ~s(aria-current="page")
+    refute timeline_html =~ ~s(role="tablist")
+    refute timeline_html =~ ~s(role="tab")
+    assert timeline_html =~ "CheckoutWorkflow"
+    assert timeline_html =~ "running"
+
+    {:noreply, default_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-tabs", "tab" => "not-a-tab"},
+        "/runs/run-tabs?tab=not-a-tab",
+        mounted_socket
+      )
+
+    assert default_socket.assigns.active_tab == :overview
+  end
+
+  test "does not refetch run data for a same-run tab patch" do
+    run_id = "run-tab-patch"
+    workflow = Atom.to_string(CheckoutWorkflow)
+
+    put_basic_run(run_id)
+
+    FakeSquidieClient.put_inspect_run(fn ^run_id, _opts ->
+      Process.put(:tab_patch_inspections, Process.get(:tab_patch_inspections, 0) + 1)
+
+      {:ok,
+       snapshot(:running,
+         run_id: run_id,
+         workflow: workflow,
+         current_step: "capture_payment",
+         reason: :attempt_visible
+       )}
+    end)
+
+    FakeSquidieClient.put_inspect_run_timeline({:ok, timeline(run_id, [])})
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, overview_socket} =
+      RunLive.handle_params(%{"id" => run_id}, "/runs/#{run_id}", mounted_socket)
+
+    {:noreply, timeline_socket} =
+      RunLive.handle_params(
+        %{"id" => run_id, "tab" => "timeline"},
+        "/runs/#{run_id}?tab=timeline",
+        overview_socket
+      )
+
+    assert Process.get(:tab_patch_inspections) == 1
+    assert timeline_socket.assigns.active_tab == :timeline
+    assert timeline_socket.assigns.detail.summary.id == run_id
+  end
+
+  test "renders timeline events chronologically and excludes redaction-sensitive details" do
+    put_basic_run("run-timeline")
+
+    later =
+      %Event{
+        type: :attempt_claimed,
+        occurred_at: ~U[2026-05-15 10:10:00Z],
+        run_id: "run-timeline",
+        step_id: "capture_payment",
+        status: :claimed,
+        summary: "capture_payment attempt claimed",
+        details: %{attempt_number: 2, claim_token: "timeline-secret"}
+      }
+
+    earlier =
+      %Event{
+        type: :run_started,
+        occurred_at: ~U[2026-05-15 10:00:00Z],
+        run_id: "run-timeline",
+        status: :running,
+        summary: "run started",
+        details: %{payload: "payload-secret"}
+      }
+
+    FakeSquidieClient.put_inspect_run_timeline({:ok, timeline("run-timeline", [later, earlier])})
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, loaded_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-timeline", "tab" => "timeline"},
+        "/runs/run-timeline?tab=timeline",
+        mounted_socket
+      )
+
+    html = rendered_to_string(RunLive.render(loaded_socket.assigns))
+    {started_at, _length} = :binary.match(html, "run started")
+    {claimed_at, _length} = :binary.match(html, "capture_payment attempt claimed")
+
+    assert started_at < claimed_at
+    assert html =~ ~s(data-timeline-type="run_started")
+    assert html =~ ~s(data-timeline-type="attempt_claimed")
+    assert html =~ "attempt 2"
+    refute html =~ "timeline-secret"
+    refute html =~ "payload-secret"
+  end
+
+  test "renders useful empty and partial timeline states" do
+    put_basic_run("run-empty-timeline")
+
+    FakeSquidieClient.put_inspect_run_timeline({:ok, timeline("run-empty-timeline", [])})
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, empty_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-empty-timeline", "tab" => "timeline"},
+        "/runs/run-empty-timeline?tab=timeline",
+        mounted_socket
+      )
+
+    empty_html = rendered_to_string(RunLive.render(empty_socket.assigns))
+    assert empty_html =~ "No timestamped events available"
+    refute empty_html =~ "Timeline data is partial"
+
+    FakeSquidieClient.put_inspect_run_timeline({:error, :temporarily_unavailable})
+
+    {:noreply, partial_socket} =
+      RunLive.handle_params(
+        %{"id" => "run-empty-timeline", "tab" => "timeline"},
+        "/runs/run-empty-timeline?tab=timeline",
+        mounted_socket
+      )
+
+    partial_html = rendered_to_string(RunLive.render(partial_socket.assigns))
+    assert partial_html =~ "Timeline data is partial"
+    assert partial_socket.assigns.detail.timeline_partial?
+  end
+
+  test "retains a terminal partial timeline while bounded retries fail" do
+    run_id = "run-terminal-partial"
+    workflow = Atom.to_string(CheckoutWorkflow)
+
+    terminal_snapshot =
+      snapshot(:completed,
+        run_id: run_id,
+        workflow: workflow,
+        reason: :terminal
+      )
+
+    FakeSquidieClient.put_inspect_run(fn ^run_id, _opts ->
+      case Process.get(:terminal_partial_inspections, 0) do
+        0 ->
+          Process.put(:terminal_partial_inspections, 1)
+          {:ok, terminal_snapshot}
+
+        _retry ->
+          {:error, :temporarily_unavailable}
+      end
+    end)
+
+    FakeSquidieClient.put_inspect_run_graph(
+      {:ok, graph_inspection(:completed, run_id: run_id, workflow: workflow)}
+    )
+
+    FakeSquidieClient.put_explain_run(
+      {:ok, diagnostic(:completed, run_id: run_id, workflow: workflow, reason: :terminal)}
+    )
+
+    FakeSquidieClient.put_inspect_run_timeline({:error, :temporarily_unavailable})
+
+    {:ok, mounted_socket} = RunLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, partial_socket} =
+      RunLive.handle_params(
+        %{"id" => run_id, "tab" => "timeline"},
+        "/runs/#{run_id}?tab=timeline",
+        mounted_socket
+      )
+
+    assert partial_socket.assigns.detail.summary.id == run_id
+    assert partial_socket.assigns.detail.timeline_partial?
+    assert partial_socket.assigns.partial_timeline_refresh_attempts == 1
+
+    {:noreply, first_retry_socket} = RunLive.handle_info(:refresh_run, partial_socket)
+    {:noreply, final_retry_socket} = RunLive.handle_info(:refresh_run, first_retry_socket)
+
+    assert final_retry_socket.assigns.detail.summary.id == run_id
+    assert final_retry_socket.assigns.load_error == nil
+    assert final_retry_socket.assigns.partial_timeline_refresh_attempts == 3
   end
 
   test "renders live claim and heartbeat recovery evidence" do
@@ -787,7 +996,7 @@ defmodule SquidSonarWeb.RunLiveTest do
       |> rendered_to_string()
 
     assert visual_html =~ "Transition graph"
-    assert visual_html =~ "Raw inspection"
+    assert visual_html =~ "Raw data"
     assert visual_html =~ "Rollback"
     assert visual_html =~ "squid-sonar-workflow-node-recovery-panel"
     assert visual_html =~ "ReleaseInventory"
@@ -1469,5 +1678,51 @@ defmodule SquidSonarWeb.RunLiveTest do
 
   defp operator_socket(socket) do
     Phoenix.Component.assign(socket, :visibility_policy, :operator)
+  end
+
+  defp put_basic_run(run_id) do
+    workflow = Atom.to_string(CheckoutWorkflow)
+
+    FakeSquidieClient.put_inspect_run(
+      {:ok,
+       snapshot(:running,
+         run_id: run_id,
+         workflow: workflow,
+         current_step: "capture_payment",
+         reason: :attempt_visible
+       )}
+    )
+
+    FakeSquidieClient.put_inspect_run_graph(
+      {:ok,
+       graph_inspection(:running,
+         run_id: run_id,
+         workflow: workflow,
+         current_node_id: "capture_payment",
+         nodes: [graph_node("capture_payment", :running, true)]
+       )}
+    )
+
+    FakeSquidieClient.put_explain_run(
+      {:ok,
+       diagnostic(:running,
+         run_id: run_id,
+         workflow: workflow,
+         step: "capture_payment",
+         reason: :attempt_visible
+       )}
+    )
+  end
+
+  defp timeline(run_id, events) do
+    %Timeline{
+      run_id: run_id,
+      workflow: Atom.to_string(CheckoutWorkflow),
+      queue: "default",
+      status: :running,
+      terminal?: false,
+      terminal_status: nil,
+      events: events
+    }
   end
 end

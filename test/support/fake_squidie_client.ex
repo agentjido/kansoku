@@ -14,6 +14,11 @@ defmodule SquidSonar.FakeSquidieClient do
   end
 
   @impl SquidSonar.SquidieClient
+  def inspect_run_timeline(run_id, opts) do
+    result({__MODULE__, :inspect_run_timeline}, [run_id, opts], {:error, :not_found})
+  end
+
+  @impl SquidSonar.SquidieClient
   def inspect_run_graph(run_id, opts) do
     result({__MODULE__, :inspect_run_graph}, [run_id, opts], {:error, :not_found})
   end
@@ -69,6 +74,13 @@ defmodule SquidSonar.FakeSquidieClient do
   """
   @spec put_inspect_run(term()) :: term()
   def put_inspect_run(result), do: Process.put({__MODULE__, :inspect_run}, result)
+
+  @doc """
+  Sets the fake response for run timeline inspection.
+  """
+  @spec put_inspect_run_timeline(term()) :: term()
+  def put_inspect_run_timeline(result),
+    do: Process.put({__MODULE__, :inspect_run_timeline}, result)
 
   @doc """
   Sets the fake response for graph inspection.

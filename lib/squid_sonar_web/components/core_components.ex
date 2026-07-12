@@ -51,7 +51,7 @@ defmodule SquidSonarWeb.CoreComponents do
   attr :eyebrow, :string, default: nil
   attr :title, :string, required: true
   attr :description, :string, default: nil
-  attr :level, :atom, values: [:h2, :h3], default: :h2
+  attr :level, :atom, values: [:h2, :h3, :h4], default: :h2
   attr :class, :any, default: nil
   slot :actions
 
@@ -63,6 +63,7 @@ defmodule SquidSonarWeb.CoreComponents do
         <p :if={@eyebrow} class="squid-sonar-eyebrow">{@eyebrow}</p>
         <h2 :if={@level == :h2}>{@title}</h2>
         <h3 :if={@level == :h3}>{@title}</h3>
+        <h4 :if={@level == :h4}>{@title}</h4>
         <p :if={@description} class="squid-sonar-panel-heading-description">{@description}</p>
       </div>
 
@@ -625,6 +626,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :detail, :map, required: true
   attr :prefix, :string, default: ""
+  attr :active_tab, :atom, default: :overview
   attr :workflow_panel_view, :atom, default: :visual
 
   @spec run_detail(map()) :: Phoenix.LiveView.Rendered.t()
@@ -650,6 +652,7 @@ defmodule SquidSonarWeb.CoreComponents do
         </div>
         <div class="squid-sonar-detail-header-actions">
           <.status_badge status={@detail.summary.status} />
+          <.run_control_buttons :if={control_actions?(@detail)} detail={@detail} />
         </div>
       </header>
 
@@ -663,239 +666,372 @@ defmodule SquidSonarWeb.CoreComponents do
         />
       </div>
 
-      <section class="squid-sonar-detail-panel squid-sonar-summary-json-panel">
-        <.panel_heading
-          title="Run summary JSON"
-          description="Only values already visible in this run summary are included."
-          level={:h3}
+      <nav class="squid-sonar-run-tabs" aria-label="Run detail views">
+        <.link
+          :for={tab <- run_detail_tabs()}
+          id={"run-tab-#{run_tab_param(tab)}"}
+          patch={run_tab_path(@prefix, @detail.summary.id, tab)}
+          aria-current={@active_tab == tab && "page"}
+          class={["squid-sonar-run-tab", @active_tab == tab && "is-active"]}
         >
-          <:actions>
-            <.copy_button
-              id="copy-run-summary-json"
-              target_id="run-summary-json"
-              label="Copy safe JSON"
-            />
-          </:actions>
-        </.panel_heading>
-        <pre id="run-summary-json" class="squid-sonar-workflow-raw-json"><code>{run_summary_json(@detail.summary)}</code></pre>
-      </section>
+          {run_tab_label(tab)}
+        </.link>
+      </nav>
 
-      <div class="squid-sonar-detail-columns">
-        <section class="squid-sonar-detail-panel">
-          <h3>Diagnosis</h3>
-          <.detail_item label="Reason" value={explanation_reason(@detail.explanation)} />
-          <.detail_item label="Suggested actions" value={next_actions(@detail.explanation)} />
-          <.detail_item label="Last error" value={last_error(@detail.last_error)} variant={:code} />
+      <div
+        id="run-tab-panel-overview"
+        role="region"
+        aria-labelledby="run-tab-overview"
+        hidden={@active_tab != :overview}
+        class="squid-sonar-run-tab-panel"
+      >
+        <section class="squid-sonar-detail-panel squid-sonar-summary-json-panel">
+          <.panel_heading
+            title="Run summary JSON"
+            description="Only values already visible in this run summary are included."
+            level={:h3}
+          >
+            <:actions>
+              <.copy_button
+                id="copy-run-summary-json"
+                target_id="run-summary-json"
+                label="Copy safe JSON"
+              />
+            </:actions>
+          </.panel_heading>
+          <pre id="run-summary-json" class="squid-sonar-workflow-raw-json"><code>{run_summary_json(@detail.summary)}</code></pre>
         </section>
 
-        <section class="squid-sonar-detail-panel">
-          <h3>Journal evidence</h3>
-          <.detail_item label="Planned runnables" value={length(@detail.planned_runnables)} />
-          <.detail_item label="Attempts" value={length(@detail.attempts)} />
-          <.detail_item label="Anomalies" value={length(@detail.anomalies)} />
-        </section>
+        <div class="squid-sonar-detail-columns">
+          <section class="squid-sonar-detail-panel">
+            <h3>Diagnosis</h3>
+            <.detail_item label="Reason" value={explanation_reason(@detail.explanation)} />
+            <.detail_item label="Suggested actions" value={next_actions(@detail.explanation)} />
+            <.detail_item label="Last error" value={last_error(@detail.last_error)} variant={:code} />
+          </section>
+
+          <section class="squid-sonar-detail-panel">
+            <h3>Journal evidence</h3>
+            <.detail_item label="Planned runnables" value={length(@detail.planned_runnables)} />
+            <.detail_item label="Attempts" value={length(@detail.attempts)} />
+            <.detail_item label="Anomalies" value={length(@detail.anomalies)} />
+          </section>
+        </div>
+
+        <%= if deadline = @detail.summary.deadline do %>
+          <section class="squid-sonar-detail-panel squid-sonar-deadline-panel">
+            <h3>Deadline</h3>
+            <.detail_item label="State" value={format_deadline_status(deadline_status(deadline))} />
+            <.detail_item label="Step" value={deadline_step(deadline)} />
+            <.detail_item label="Due at" value={deadline_time(deadline, :due_at)} />
+            <.detail_item label="Due soon at" value={deadline_time(deadline, :due_soon_at)} />
+            <.detail_item label="Escalated at" value={deadline_time(deadline, :escalated_at)} />
+            <.detail_item label="Escalation" value={deadline_escalation(deadline)} />
+          </section>
+        <% end %>
       </div>
 
-      <%= if deadline = @detail.summary.deadline do %>
-        <section class="squid-sonar-detail-panel squid-sonar-deadline-panel">
-          <h3>Deadline</h3>
-          <.detail_item label="State" value={format_deadline_status(deadline_status(deadline))} />
-          <.detail_item label="Step" value={deadline_step(deadline)} />
-          <.detail_item label="Due at" value={deadline_time(deadline, :due_at)} />
-          <.detail_item label="Due soon at" value={deadline_time(deadline, :due_soon_at)} />
-          <.detail_item label="Escalated at" value={deadline_time(deadline, :escalated_at)} />
-          <.detail_item label="Escalation" value={deadline_escalation(deadline)} />
-        </section>
-      <% end %>
+      <section
+        :if={@active_tab == :timeline}
+        id="run-tab-panel-timeline"
+        role="region"
+        aria-labelledby="run-tab-timeline"
+        class="squid-sonar-run-tab-panel squid-sonar-detail-panel squid-sonar-timeline-panel"
+      >
+        <.panel_heading
+          title="Timeline"
+          description="Timestamped runtime events from Squidie's visibility-filtered read model."
+          level={:h3}
+        />
+
+        <p :if={@detail.timeline_partial?} class="squid-sonar-timeline-notice" role="status">
+          Timeline data is partial. Available events were reconstructed from the current run snapshot.
+        </p>
+
+        <div :if={timeline_events(@detail) == []} class="squid-sonar-empty squid-sonar-tab-empty">
+          <h3>No timestamped events available</h3>
+          <p>The runtime has not exposed chronological evidence for this run yet.</p>
+        </div>
+
+        <ol :if={timeline_events(@detail) != []} class="squid-sonar-timeline-list">
+          <li
+            :for={event <- timeline_events(@detail)}
+            class="squid-sonar-timeline-event"
+            data-timeline-type={event.type}
+          >
+            <span class={["squid-sonar-timeline-marker", "is-#{event_status(event)}"]} />
+            <div class="squid-sonar-timeline-event-body">
+              <div class="squid-sonar-timeline-event-heading">
+                <strong>{event.summary}</strong>
+                <time datetime={DateTime.to_iso8601(event.occurred_at)}>
+                  {format_time(event.occurred_at)}
+                </time>
+              </div>
+              <div class="squid-sonar-timeline-event-meta">
+                <span>{timeline_event_label(event.type)}</span>
+                <span :if={event.step_id}>step {format_step(event.step_id)}</span>
+                <span :if={event.status}>status {format_value(event.status)}</span>
+                <span :for={{label, value} <- timeline_detail_items(event.details)}>
+                  {label} {value}
+                </span>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </section>
 
       <section
-        :if={@detail.live_claims != []}
-        class="squid-sonar-detail-panel squid-sonar-live-claim-panel"
+        id="run-tab-panel-attempts"
+        role="region"
+        aria-labelledby="run-tab-attempts"
+        hidden={@active_tab != :attempts}
+        class="squid-sonar-run-tab-panel squid-sonar-detail-panel"
       >
-        <h3>Live claims</h3>
-        <p>
-          Claim and heartbeat recovery evidence; external side effects remain owned by the runtime or host backend.
-        </p>
-        <.detail_item label="Suggested actions" value={next_actions(@detail.explanation)} />
-        <div class="squid-sonar-recovery-policy-list">
-          <article
-            :for={claim <- @detail.live_claims}
-            class="squid-sonar-recovery-policy-row"
-          >
-            <strong>{format_step(claim.step)}</strong>
-            <div class="squid-sonar-recovery-policy-tags">
-              <span>{claim_status_label(claim.status)}</span>
-              <span :if={claim.owner_id}>owner {claim.owner_id}</span>
-              <span :if={claim.claim_id}>claim {claim.claim_id}</span>
-              <span :if={claim.last_heartbeat_at}>
-                last heartbeat {format_time(claim.last_heartbeat_at)}
-              </span>
-              <span :if={claim.lease_until}>lease until {format_time(claim.lease_until)}</span>
-              <span :if={claim.runnable_key}>runnable {claim.runnable_key}</span>
-              <span :if={claim.attempt_number}>attempt {claim.attempt_number}</span>
+        <.panel_heading
+          title="Attempts"
+          description="Safe dispatch lifecycle fields; payloads, outputs, errors, and claim tokens are excluded."
+          level={:h3}
+        />
+
+        <div :if={@detail.attempts == []} class="squid-sonar-empty squid-sonar-tab-empty">
+          <h3>No attempts available</h3>
+          <p>No dispatch attempts are visible for this run.</p>
+        </div>
+
+        <div :if={@detail.attempts != []} class="squid-sonar-attempt-list">
+          <article :for={attempt <- @detail.attempts} class="squid-sonar-attempt-card">
+            <div class="squid-sonar-attempt-heading">
+              <strong>{format_step(map_value(attempt, :step))}</strong>
+              <.status_badge status={map_value(attempt, :status)} />
             </div>
-            <div
-              :if={claim.anomalies != []}
-              class="squid-sonar-recovery-policy-tags"
-            >
-              <span :for={anomaly <- claim.anomalies}>
-                evidence {format_claim_anomaly(anomaly)}
-              </span>
-            </div>
+            <dl class="squid-sonar-attempt-meta">
+              <div :for={{label, value} <- attempt_detail_items(attempt)}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            </dl>
           </article>
         </div>
       </section>
 
-      <section
-        :if={@detail.compensation_evidence != []}
-        class="squid-sonar-detail-panel squid-sonar-recovery-policy-panel"
+      <div
+        id="run-tab-panel-recovery"
+        role="region"
+        aria-labelledby="run-tab-recovery"
+        hidden={@active_tab != :recovery}
+        class="squid-sonar-run-tab-panel"
       >
-        <h3>Compensation evidence</h3>
-        <p>
-          Read-only rollback and undo evidence; SquidSonar does not execute compensation from this summary.
-        </p>
-        <div class="squid-sonar-recovery-policy-list">
-          <div
-            :for={evidence <- @detail.compensation_evidence}
-            class="squid-sonar-recovery-policy-row"
-          >
-            <strong>{evidence.step}</strong>
-            <div class="squid-sonar-recovery-policy-tags">
-              <span>{compensation_status_label(evidence.status)}</span>
-              <span :if={evidence.compensation_callback}>
-                via {evidence.compensation_callback}
-              </span>
-              <span :if={evidence.policy_status}>
-                policy {format_policy_value(evidence.policy_status)}
-              </span>
-              <span :if={evidence.compensation_step}>{evidence.compensation_step}</span>
-              <span :if={evidence.failure_reason}>reason {evidence.failure_reason}</span>
-              <span :if={evidence.irreversible? == true}>irreversible</span>
-              <span :if={evidence.compensatable? == false}>non-compensatable</span>
-              <span :if={evidence.replay}>replay {format_policy_value(evidence.replay)}</span>
-              <span :if={evidence.recovery}>recovery {format_policy_value(evidence.recovery)}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section
-        :if={@detail.dynamic_work_overlays != []}
-        class="squid-sonar-detail-panel squid-sonar-dynamic-work-panel"
-      >
-        <h3>Dynamic work overlays</h3>
-        <p>
-          Runtime-authored structure is inspection-only here; SquidSonar is not treating
-          dynamic nodes as executable planner controls.
-        </p>
-        <div class="squid-sonar-recovery-policy-list">
-          <article
-            :for={overlay <- @detail.dynamic_work_overlays}
-            class="squid-sonar-recovery-policy-row"
-          >
-            <strong>{format_dynamic_overlay_key(overlay)}</strong>
-            <div class="squid-sonar-recovery-policy-tags">
-              <span>origin {format_step(overlay.origin_node_id)}</span>
-              <span :if={overlay.status}>status {format_policy_value(overlay.status)}</span>
-              <span :if={overlay.reason}>reason {format_policy_value(overlay.reason)}</span>
-              <span>{pluralize(overlay.node_count, "node")}</span>
-              <span>{pluralize(overlay.edge_count, "edge")}</span>
-              <span :if={overlay.recorded_at}>recorded {format_time(overlay.recorded_at)}</span>
-            </div>
-            <div class="squid-sonar-recovery-policy-tags">
-              <span :if={overlay.added_node_ids != []}>
-                nodes {Enum.join(overlay.added_node_ids, ", ")}
-              </span>
-              <span :if={overlay.added_edge_ids != []}>
-                edges {Enum.join(overlay.added_edge_ids, ", ")}
-              </span>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section
-        :if={@detail.deferred_continuations != []}
-        class="squid-sonar-detail-panel squid-sonar-deferred-continuation-panel"
-      >
-        <h3>Deferred continuations</h3>
-        <p>
-          Deferred wake-up metadata, target continuation, decision context, and safe cancellation and replay guidance.
-        </p>
-        <div class="squid-sonar-recovery-policy-list">
-          <article
-            :for={deferred <- @detail.deferred_continuations}
-            class="squid-sonar-recovery-policy-row"
-          >
-            <strong>{format_step(deferred.step)}</strong>
-            <div class="squid-sonar-recovery-policy-tags">
-              <span :if={deferred.reason}>reason {format_policy_value(deferred.reason)}</span>
-              <span :if={deferred.target_step}>target {format_step(deferred.target_step)}</span>
-              <span :if={deferred.target_branch}>branch {deferred.target_branch}</span>
-              <span :if={deferred.visible_at}>visible {format_time(deferred.visible_at)}</span>
-              <span :if={deferred.next_visible_at}>
-                next wakeup {format_time(deferred.next_visible_at)}
-              </span>
-              <span :if={deferred.deferred_at}>deferred {format_time(deferred.deferred_at)}</span>
-              <span :if={deferred.runnable_key}>runnable {deferred.runnable_key}</span>
-              <span :if={deferred.from_runnable_key}>from {deferred.from_runnable_key}</span>
-              <span :if={not is_nil(deferred.wakeup_emitted?)}>
-                wakeup emitted? {format_value(deferred.wakeup_emitted?)}
-              </span>
-            </div>
-            <div
-              :if={deferred.decision_context != %{}}
-              class="squid-sonar-recovery-policy-tags"
-            >
-              <span>context {format_deferred_context(deferred.decision_context)}</span>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="squid-sonar-detail-panel">
-        <div class="squid-sonar-workflow-panel-heading">
-          <h3>Workflow</h3>
-          <div :if={control_actions?(@detail)} class="squid-sonar-workflow-panel-actions">
-            <.run_control_buttons detail={@detail} />
-          </div>
-        </div>
-
-        <div
-          class="squid-sonar-workflow-panel-tabs"
-          role="tablist"
-          aria-label="Workflow inspection view"
+        <section
+          :if={@detail.recovery_policies != []}
+          class="squid-sonar-detail-panel squid-sonar-recovery-policy-panel"
         >
-          <button
-            type="button"
-            role="tab"
-            phx-click="show_visual_workflow_panel"
-            phx-value-view="visual"
-            aria-selected={@workflow_panel_view == :visual}
-            class={[
-              "squid-sonar-workflow-panel-tab",
-              @workflow_panel_view == :visual && "is-active"
-            ]}
-          >
-            Visual graph
-          </button>
-          <button
-            type="button"
-            role="tab"
-            phx-click="show_raw_workflow_panel"
-            phx-value-view="raw"
-            aria-selected={@workflow_panel_view == :raw}
-            class={[
-              "squid-sonar-workflow-panel-tab",
-              @workflow_panel_view == :raw && "is-active"
-            ]}
-          >
-            Raw inspection
-          </button>
+          <h3>Recovery policies</h3>
+          <p>Read-only policy evidence declared by the workflow and exposed by Squidie.</p>
+          <div class="squid-sonar-recovery-policy-list">
+            <article
+              :for={policy <- @detail.recovery_policies}
+              class="squid-sonar-recovery-policy-row"
+            >
+              <strong>{format_step(policy.step)}</strong>
+              <div class="squid-sonar-recovery-policy-tags">
+                <span :if={policy.recovery}>recovery {format_policy_value(policy.recovery)}</span>
+                <span :if={policy.replay}>replay {format_policy_value(policy.replay)}</span>
+                <span :if={policy.compensation_status}>
+                  compensation {format_policy_value(policy.compensation_status)}
+                </span>
+                <span :if={policy.compensation_callback}>via {policy.compensation_callback}</span>
+                <span :if={policy.irreversible? == true}>irreversible</span>
+                <span :if={policy.compensatable? == false}>non-compensatable</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section
+          :if={@detail.live_claims != []}
+          class="squid-sonar-detail-panel squid-sonar-live-claim-panel"
+        >
+          <h3>Live claims</h3>
+          <p>
+            Claim and heartbeat recovery evidence; external side effects remain owned by the runtime or host backend.
+          </p>
+          <.detail_item label="Suggested actions" value={next_actions(@detail.explanation)} />
+          <div class="squid-sonar-recovery-policy-list">
+            <article
+              :for={claim <- @detail.live_claims}
+              class="squid-sonar-recovery-policy-row"
+            >
+              <strong>{format_step(claim.step)}</strong>
+              <div class="squid-sonar-recovery-policy-tags">
+                <span>{claim_status_label(claim.status)}</span>
+                <span :if={claim.owner_id}>owner {claim.owner_id}</span>
+                <span :if={claim.claim_id}>claim {claim.claim_id}</span>
+                <span :if={claim.last_heartbeat_at}>
+                  last heartbeat {format_time(claim.last_heartbeat_at)}
+                </span>
+                <span :if={claim.lease_until}>lease until {format_time(claim.lease_until)}</span>
+                <span :if={claim.runnable_key}>runnable {claim.runnable_key}</span>
+                <span :if={claim.attempt_number}>attempt {claim.attempt_number}</span>
+              </div>
+              <div
+                :if={claim.anomalies != []}
+                class="squid-sonar-recovery-policy-tags"
+              >
+                <span :for={anomaly <- claim.anomalies}>
+                  evidence {format_claim_anomaly(anomaly)}
+                </span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section
+          :if={@detail.compensation_evidence != []}
+          class="squid-sonar-detail-panel squid-sonar-recovery-policy-panel"
+        >
+          <h3>Compensation evidence</h3>
+          <p>
+            Read-only rollback and undo evidence; SquidSonar does not execute compensation from this summary.
+          </p>
+          <div class="squid-sonar-recovery-policy-list">
+            <div
+              :for={evidence <- @detail.compensation_evidence}
+              class="squid-sonar-recovery-policy-row"
+            >
+              <strong>{evidence.step}</strong>
+              <div class="squid-sonar-recovery-policy-tags">
+                <span>{compensation_status_label(evidence.status)}</span>
+                <span :if={evidence.compensation_callback}>
+                  via {evidence.compensation_callback}
+                </span>
+                <span :if={evidence.policy_status}>
+                  policy {format_policy_value(evidence.policy_status)}
+                </span>
+                <span :if={evidence.compensation_step}>{evidence.compensation_step}</span>
+                <span :if={evidence.failure_reason}>reason {evidence.failure_reason}</span>
+                <span :if={evidence.irreversible? == true}>irreversible</span>
+                <span :if={evidence.compensatable? == false}>non-compensatable</span>
+                <span :if={evidence.replay}>replay {format_policy_value(evidence.replay)}</span>
+                <span :if={evidence.recovery}>recovery {format_policy_value(evidence.recovery)}</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          :if={@detail.dynamic_work_overlays != []}
+          class="squid-sonar-detail-panel squid-sonar-dynamic-work-panel"
+        >
+          <h3>Dynamic work overlays</h3>
+          <p>
+            Runtime-authored structure is inspection-only here; SquidSonar is not treating
+            dynamic nodes as executable planner controls.
+          </p>
+          <div class="squid-sonar-recovery-policy-list">
+            <article
+              :for={overlay <- @detail.dynamic_work_overlays}
+              class="squid-sonar-recovery-policy-row"
+            >
+              <strong>{format_dynamic_overlay_key(overlay)}</strong>
+              <div class="squid-sonar-recovery-policy-tags">
+                <span>origin {format_step(overlay.origin_node_id)}</span>
+                <span :if={overlay.status}>status {format_policy_value(overlay.status)}</span>
+                <span :if={overlay.reason}>reason {format_policy_value(overlay.reason)}</span>
+                <span>{pluralize(overlay.node_count, "node")}</span>
+                <span>{pluralize(overlay.edge_count, "edge")}</span>
+                <span :if={overlay.recorded_at}>recorded {format_time(overlay.recorded_at)}</span>
+              </div>
+              <div class="squid-sonar-recovery-policy-tags">
+                <span :if={overlay.added_node_ids != []}>
+                  nodes {Enum.join(overlay.added_node_ids, ", ")}
+                </span>
+                <span :if={overlay.added_edge_ids != []}>
+                  edges {Enum.join(overlay.added_edge_ids, ", ")}
+                </span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section
+          :if={@detail.deferred_continuations != []}
+          class="squid-sonar-detail-panel squid-sonar-deferred-continuation-panel"
+        >
+          <h3>Deferred continuations</h3>
+          <p>
+            Deferred wake-up metadata, target continuation, decision context, and safe cancellation and replay guidance.
+          </p>
+          <div class="squid-sonar-recovery-policy-list">
+            <article
+              :for={deferred <- @detail.deferred_continuations}
+              class="squid-sonar-recovery-policy-row"
+            >
+              <strong>{format_step(deferred.step)}</strong>
+              <div class="squid-sonar-recovery-policy-tags">
+                <span :if={deferred.reason}>reason {format_policy_value(deferred.reason)}</span>
+                <span :if={deferred.target_step}>target {format_step(deferred.target_step)}</span>
+                <span :if={deferred.target_branch}>branch {deferred.target_branch}</span>
+                <span :if={deferred.visible_at}>visible {format_time(deferred.visible_at)}</span>
+                <span :if={deferred.next_visible_at}>
+                  next wakeup {format_time(deferred.next_visible_at)}
+                </span>
+                <span :if={deferred.deferred_at}>deferred {format_time(deferred.deferred_at)}</span>
+                <span :if={deferred.runnable_key}>runnable {deferred.runnable_key}</span>
+                <span :if={deferred.from_runnable_key}>from {deferred.from_runnable_key}</span>
+                <span :if={not is_nil(deferred.wakeup_emitted?)}>
+                  wakeup emitted? {format_value(deferred.wakeup_emitted?)}
+                </span>
+              </div>
+              <div
+                :if={deferred.decision_context != %{}}
+                class="squid-sonar-recovery-policy-tags"
+              >
+                <span>context {format_deferred_context(deferred.decision_context)}</span>
+              </div>
+            </article>
+          </div>
+        </section>
+        <div
+          :if={recovery_evidence_empty?(@detail)}
+          class="squid-sonar-empty squid-sonar-tab-empty"
+        >
+          <h3>No recovery evidence available</h3>
+          <p>This run has no visible claims, deferrals, dynamic work, or compensation evidence.</p>
+        </div>
+      </div>
+
+      <section
+        id="run-tab-panel-inspection"
+        role="region"
+        aria-labelledby={
+          if @active_tab == :raw_data, do: "run-tab-raw-data", else: "run-tab-workflow"
+        }
+        hidden={@active_tab not in [:workflow, :raw_data]}
+        class="squid-sonar-run-tab-panel squid-sonar-detail-panel"
+      >
+        <div class="squid-sonar-workflow-panel-heading">
+          <h3>{if @workflow_panel_view == :raw, do: "Raw data", else: "Workflow"}</h3>
         </div>
 
         <%= if @workflow_panel_view == :raw do %>
           <div class="squid-sonar-workflow-raw">
+            <section class="squid-sonar-raw-summary">
+              <.panel_heading
+                title="Run summary JSON"
+                description="Only values already visible in the persistent run summary are included."
+                level={:h4}
+              >
+                <:actions>
+                  <.copy_button
+                    id="copy-run-raw-summary-json"
+                    target_id="run-raw-summary-json"
+                    label="Copy safe JSON"
+                  />
+                </:actions>
+              </.panel_heading>
+              <pre id="run-raw-summary-json" class="squid-sonar-workflow-raw-json"><code>{run_summary_json(@detail.summary)}</code></pre>
+            </section>
+
             <div class="squid-sonar-workflow-graph-heading">
               <div class="squid-sonar-workflow-graph-heading-copy">
                 <span class="squid-sonar-section-label">Public graph payload</span>
@@ -1222,6 +1358,89 @@ defmodule SquidSonarWeb.CoreComponents do
   end
 
   defp run_path(prefix, run_id), do: "#{prefix}/runs/#{run_id}"
+
+  defp run_detail_tabs,
+    do: [:overview, :timeline, :workflow, :attempts, :recovery, :raw_data]
+
+  defp run_tab_label(:overview), do: "Overview"
+  defp run_tab_label(:timeline), do: "Timeline"
+  defp run_tab_label(:workflow), do: "Workflow"
+  defp run_tab_label(:attempts), do: "Attempts"
+  defp run_tab_label(:recovery), do: "Recovery"
+  defp run_tab_label(:raw_data), do: "Raw data"
+
+  defp run_tab_param(:raw_data), do: "raw-data"
+  defp run_tab_param(tab), do: Atom.to_string(tab)
+
+  defp run_tab_path(prefix, run_id, tab) do
+    case tab do
+      :overview -> run_path(prefix, run_id)
+      _tab -> run_path(prefix, run_id) <> "?tab=#{run_tab_param(tab)}"
+    end
+  end
+
+  defp timeline_events(%{timeline: %{events: events}}) when is_list(events) do
+    events
+  end
+
+  defp timeline_events(_detail), do: []
+
+  defp timeline_event_label(type), do: human_status(type)
+
+  defp event_status(%{status: status}) when status in [:completed, :succeeded], do: "success"
+
+  defp event_status(%{status: status}) when status in [:failed, :cancelled, :rejected],
+    do: "danger"
+
+  defp event_status(%{status: status})
+       when status in [:retry_scheduled, :paused, :overdue, :escalated],
+       do: "warning"
+
+  defp event_status(_event), do: "accent"
+
+  defp timeline_detail_items(details) when is_map(details) do
+    [
+      {"attempt", map_value(details, :attempt_number)},
+      {"visible", format_optional_time(map_value(details, :visible_at))},
+      {"signal", map_value(details, :signal_type)},
+      {"kind", map_value(details, :kind)},
+      {"reason", map_value(details, :reason)}
+    ]
+    |> Enum.reject(fn {_label, value} -> is_nil(value) end)
+    |> Enum.map(fn {label, value} -> {label, format_value(value)} end)
+  end
+
+  defp timeline_detail_items(_details), do: []
+
+  defp attempt_detail_items(attempt) do
+    [
+      {"Attempt", map_value(attempt, :attempt_number)},
+      {"Runnable", map_value(attempt, :runnable_key)},
+      {"Scheduled", format_optional_time(map_value(attempt, :scheduled_at))},
+      {"Visible", format_optional_time(map_value(attempt, :visible_at))},
+      {"Claimed", format_optional_time(map_value(attempt, :claimed_at))},
+      {"Lease until", format_optional_time(map_value(attempt, :lease_until))},
+      {"Completed", format_optional_time(map_value(attempt, :completed_at))}
+    ]
+    |> Enum.reject(fn {_label, value} -> is_nil(value) end)
+    |> Enum.map(fn {label, value} -> {label, format_value(value)} end)
+  end
+
+  defp format_optional_time(nil), do: nil
+  defp format_optional_time(value), do: format_time(value)
+
+  defp recovery_evidence_empty?(detail) do
+    Enum.all?(
+      [
+        detail.recovery_policies,
+        detail.live_claims,
+        detail.compensation_evidence,
+        detail.dynamic_work_overlays,
+        detail.deferred_continuations
+      ],
+      &(&1 == [])
+    )
+  end
 
   defp explanation_reason(nil), do: "Unknown"
   defp explanation_reason(%{reason: reason}), do: format_value(reason)

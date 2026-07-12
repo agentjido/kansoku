@@ -210,6 +210,12 @@ defmodule SquidSonar.Runs.RunDetailTest do
 
     assert detail.dynamic_work == graph_inspection.dynamic_work
     assert detail.graph_inspection.dynamic_work_overlays == graph_inspection.dynamic_work_overlays
+
+    assert %{
+             type: :dynamic_work_recorded,
+             occurred_at: ^recorded_at,
+             step_id: "capture_payment"
+           } = Enum.find(detail.timeline.events, &(&1.type == :dynamic_work_recorded))
   end
 
   test "normalizes overlay values and filters empty overlay records" do
@@ -355,6 +361,18 @@ defmodule SquidSonar.Runs.RunDetailTest do
                anomalies: [%{reason: :stale_claim, claim_id: "claim-expired"}]
              }
            ] = detail.live_claims
+
+    assert %{
+             type: :claim_heartbeat_observed,
+             occurred_at: ^active_heartbeat_at,
+             step_id: "capture_payment"
+           } = Enum.find(detail.timeline.events, &(&1.type == :claim_heartbeat_observed))
+
+    assert %{
+             type: :claim_expired,
+             occurred_at: ^expired_lease_until,
+             step_id: "reserve_inventory"
+           } = Enum.find(detail.timeline.events, &(&1.type == :claim_expired))
   end
 
   test "projects deferred continuation evidence from scheduled attempts" do
@@ -438,6 +456,12 @@ defmodule SquidSonar.Runs.RunDetailTest do
              }
            ] = Map.get(detail, :deferred_continuations)
 
+    assert %{
+             type: :continuation_deferred,
+             occurred_at: ^deferred_at,
+             step_id: "capture_payment"
+           } = Enum.find(detail.timeline.events, &(&1.type == :continuation_deferred))
+
     assert [
              %{
                reason: :awaiting_provider,
@@ -445,5 +469,53 @@ defmodule SquidSonar.Runs.RunDetailTest do
                target_branch: "provider_callback"
              }
            ] = detail.graph_inspection.deferred_continuations
+  end
+
+  test "adds reached deadline states to the chronological timeline" do
+    due_soon_at = ~U[2026-05-15 10:10:00Z]
+    due_at = ~U[2026-05-15 10:15:00Z]
+    escalated_at = ~U[2026-05-15 10:20:00Z]
+
+    deadline = %{
+      status: :escalated,
+      step: "capture_payment",
+      due_soon_at: due_soon_at,
+      due_at: due_at,
+      escalated_at: escalated_at
+    }
+
+    snapshot =
+      snapshot(:running,
+        run_id: "run-deadline-timeline",
+        workflow: "Elixir.Example.Checkout",
+        current_step: "capture_payment",
+        deadline: deadline
+      )
+
+    explanation =
+      diagnostic(:running,
+        run_id: "run-deadline-timeline",
+        workflow: "Elixir.Example.Checkout",
+        step: "capture_payment"
+      )
+
+    graph =
+      graph_inspection(:running,
+        run_id: "run-deadline-timeline",
+        workflow: "Elixir.Example.Checkout",
+        current_node_id: "capture_payment"
+      )
+
+    detail = RunDetail.from_models(snapshot, explanation, graph)
+
+    assert [
+             %{type: :deadline_due_soon, occurred_at: ^due_soon_at},
+             %{type: :deadline_overdue, occurred_at: ^due_at},
+             %{type: :deadline_escalated, occurred_at: ^escalated_at}
+           ] =
+             Enum.filter(
+               detail.timeline.events,
+               &String.starts_with?(to_string(&1.type), "deadline_")
+             )
   end
 end

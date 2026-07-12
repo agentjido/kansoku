@@ -6,6 +6,7 @@ defmodule SquidSonar.Runs do
   That keeps runtime access, error handling, and view shaping in one place.
   """
 
+  alias Squidie.ReadModel.Timeline
   alias Squidie.ReadModel.Visibility
   alias SquidSonar.Runs.RunDetail
   alias SquidSonar.Runs.RunSummary
@@ -47,13 +48,42 @@ defmodule SquidSonar.Runs do
     with {:ok, snapshot} <- client.inspect_run(run_id, squidie_opts),
          {:ok, graph} <- client.inspect_run_graph(run_id, squidie_opts),
          {:ok, explanation} <- client.explain_run(run_id, squidie_opts),
+         {:ok, timeline, timeline_partial?} <-
+           load_timeline(client, run_id, squidie_opts, snapshot),
          {:ok, visible_snapshot} <-
            Visibility.redact(snapshot, visibility_actor, visibility_policy),
          {:ok, visible_graph} <- Visibility.redact(graph, visibility_actor, visibility_policy),
          {:ok, visible_explanation} <-
-           Visibility.redact(explanation, visibility_actor, visibility_policy) do
-      detail = RunDetail.from_models(visible_snapshot, visible_explanation, visible_graph)
+           Visibility.redact(explanation, visibility_actor, visibility_policy),
+         {:ok, visible_timeline} <-
+           Visibility.redact(timeline, visibility_actor, visibility_policy) do
+      detail =
+        RunDetail.from_models(
+          visible_snapshot,
+          visible_explanation,
+          visible_graph,
+          visible_timeline,
+          timeline_partial?: timeline_partial?
+        )
+
       {:ok, %{detail | controls_allowed?: controls_allowed?}}
+    end
+  end
+
+  defp load_timeline(client, run_id, squidie_opts, snapshot) do
+    if function_exported?(client, :inspect_run_timeline, 2) do
+      case client.inspect_run_timeline(run_id, squidie_opts) do
+        {:ok, %Timeline{run_id: ^run_id} = timeline} ->
+          {:ok, timeline, false}
+
+        {:ok, %Timeline{}} ->
+          {:ok, Timeline.from_snapshot(snapshot), true}
+
+        {:error, _reason} ->
+          {:ok, Timeline.from_snapshot(snapshot), true}
+      end
+    else
+      {:ok, Timeline.from_snapshot(snapshot), true}
     end
   end
 
