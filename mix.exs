@@ -64,9 +64,9 @@ defmodule SquidSonar.MixProject do
 
   defp deps do
     [
-      {:phoenix, "~> 1.8.1"},
+      {:phoenix, "~> 1.8.9"},
       {:phoenix_html, "~> 4.1"},
-      {:phoenix_live_view, "~> 1.1"},
+      {:phoenix_live_view, "~> 1.2.6"},
       {:jason, "~> 1.4"},
       squidie_dep(),
       {:ex_slop, "~> 0.4.2", only: [:dev, :test], runtime: false},
