@@ -39,6 +39,8 @@ defmodule SquidSonarWeb.CoreComponents do
       phx-hook="SquidSonarCopy"
       data-copy-target={@target_id}
       data-copy-label={@label}
+      data-copy-text={@text || @label}
+      title={@label}
       aria-label={@label}
     >
       {@text || @label}
@@ -515,16 +517,16 @@ defmodule SquidSonarWeb.CoreComponents do
                 </.link>
                 <div class="squid-sonar-copy-controls">
                   <.copy_button
-                    id={"copy-run-id-#{run.id}"}
-                    target_id={"run-id-#{run.id}"}
-                    label="Copy run ID"
-                    text="ID"
-                  />
-                  <.copy_button
                     id={"copy-run-workflow-#{run.id}"}
                     target_id={"run-workflow-#{run.id}"}
-                    label="Copy workflow"
+                    label="Copy name"
                     text="Name"
+                  />
+                  <.copy_button
+                    id={"copy-run-id-#{run.id}"}
+                    target_id={"run-id-#{run.id}"}
+                    label="Copy ID"
+                    text="ID"
                   />
                 </div>
               </div>

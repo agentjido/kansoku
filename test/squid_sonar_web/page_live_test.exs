@@ -160,10 +160,14 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert html =~ ~s(value="billing" selected)
     assert html =~ ~s(name="filters[window]")
     assert html =~ ~r/<details[^>]*squid-sonar-advanced-filters[^>]*open/
-    assert html =~ "Copy run ID"
-    assert html =~ "Copy workflow"
-    assert html =~ ~r/>\s*ID\s*</
+    assert html =~ ~s(title="Copy name")
+    assert html =~ ~s(title="Copy ID")
     assert html =~ ~r/>\s*Name\s*</
+    assert html =~ ~r/>\s*ID\s*</
+
+    [{name_position, _length}] = Regex.run(~r/>\s*Name\s*</, html, return: :index)
+    [{id_position, _length}] = Regex.run(~r/>\s*ID\s*</, html, return: :index)
+    assert name_position < id_position
     assert filtered_socket.assigns.dashboard.page_size == 25
   end
 

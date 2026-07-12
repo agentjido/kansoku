@@ -105,10 +105,11 @@ defmodule SquidSonarWeb.Assets do
           try {
             await navigator.clipboard.writeText(text);
             const label = this.el.dataset.copyLabel || "Copy";
+            const displayText = this.el.dataset.copyText || label;
             this.el.textContent = "Copied";
             this.el.setAttribute("aria-label", `${label}: copied`);
             window.setTimeout(() => {
-              this.el.textContent = label;
+              this.el.textContent = displayText;
               this.el.setAttribute("aria-label", label);
             }, 1500);
           } catch (_error) {

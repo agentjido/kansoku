@@ -77,6 +77,8 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ "SquidSonarCopy"
     assert conn.resp_body =~ "navigator.clipboard.writeText"
     assert conn.resp_body =~ "target.textContent"
+    assert conn.resp_body =~ "dataset.copyText"
+    assert conn.resp_body =~ "this.el.textContent = displayText"
   end
 
   test "serves packaged LiveView client dependencies" do
