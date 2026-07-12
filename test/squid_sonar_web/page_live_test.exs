@@ -69,6 +69,10 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert html =~ "squid-sonar-filter-controls-advanced"
     assert html =~ ~s(id="reset-run-filters")
     assert html =~ "squid-sonar-filter-toggle"
+    assert html =~ ~s(id="squid-sonar-run-jump-input")
+    assert html =~ ~s(placeholder="Jump to run ID…")
+    assert html =~ ~s(minlength="3")
+    assert html =~ "squid-sonar-run-jump-submit"
     assert html =~ "Filters"
     refute html =~ "squid-sonar-overview"
     refute html =~ "Status distribution"
@@ -302,6 +306,11 @@ defmodule SquidSonarWeb.PageLiveTest do
 
     assert ambiguous_socket.assigns.jump_error ==
              "Run ID prefix is ambiguous. Enter more characters."
+
+    error_html = rendered_to_string(PageLive.render(ambiguous_socket.assigns))
+    assert error_html =~ ~s(id="squid-sonar-run-jump-error")
+    assert error_html =~ ~s(aria-invalid="true")
+    assert error_html =~ ~s(aria-describedby="squid-sonar-run-jump-error")
 
     refute ambiguous_socket.redirected
   end

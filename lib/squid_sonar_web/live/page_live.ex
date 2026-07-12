@@ -272,19 +272,48 @@ defmodule SquidSonarWeb.PageLive do
         </.link>
         <div class="squid-sonar-topbar-actions">
           <.operator_nav prefix={@prefix} current={:runs} />
-          <form id="squid-sonar-run-jump" phx-submit="jump_to_run" class="squid-sonar-run-jump">
-            <label>
-              <span class="squid-sonar-visually-hidden">Jump to run ID</span>
-              <input
-                type="search"
-                name="jump[run_id]"
-                placeholder="Run ID prefix"
-                autocomplete="off"
-                maxlength="128"
-              />
-            </label>
-            <button type="submit" class="squid-sonar-control-button">Jump</button>
-            <span :if={@jump_error} class="squid-sonar-jump-error" role="alert">
+          <form
+            id="squid-sonar-run-jump"
+            phx-submit="jump_to_run"
+            class={["squid-sonar-run-jump", @jump_error && "is-invalid"]}
+            aria-label="Jump to a recent run"
+          >
+            <div class="squid-sonar-run-jump-control">
+              <label class="squid-sonar-run-jump-field" for="squid-sonar-run-jump-input">
+                <span class="squid-sonar-visually-hidden">Run ID prefix</span>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m16 16 4 4" />
+                </svg>
+                <input
+                  id="squid-sonar-run-jump-input"
+                  type="search"
+                  name="jump[run_id]"
+                  placeholder="Jump to run ID…"
+                  autocomplete="off"
+                  minlength="3"
+                  maxlength="128"
+                  aria-invalid={to_string(not is_nil(@jump_error))}
+                  aria-describedby={@jump_error && "squid-sonar-run-jump-error"}
+                />
+              </label>
+              <button type="submit" class="squid-sonar-run-jump-submit" title="Jump to run">
+                Go
+              </button>
+            </div>
+            <span
+              :if={@jump_error}
+              id="squid-sonar-run-jump-error"
+              class="squid-sonar-jump-error"
+              role="alert"
+            >
               {@jump_error}
             </span>
           </form>

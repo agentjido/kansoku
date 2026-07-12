@@ -29,6 +29,8 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ ".squid-sonar-reset-filters"
     assert conn.resp_body =~ ".squid-sonar-saved-workflows-slot"
     assert conn.resp_body =~ ".squid-sonar-saved-workflows-content"
+    assert conn.resp_body =~ ".squid-sonar-run-jump-control"
+    assert conn.resp_body =~ ".squid-sonar-run-jump-control:focus-within"
 
     refute conn.resp_body =~
              ~r/\.squid-sonar-saved-workflows-slot\s*\{[^}]*background:/s

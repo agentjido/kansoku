@@ -154,6 +154,99 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   display: flex;
 }
 
+.squid-sonar-run-jump {
+  min-width: 220px;
+  position: relative;
+}
+
+.squid-sonar-run-jump-control {
+  align-items: stretch;
+  background: var(--squid-sonar-surface-muted);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 8px;
+  display: flex;
+  min-height: 34px;
+  overflow: hidden;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.squid-sonar-run-jump-control:focus-within {
+  border-color: var(--squid-sonar-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--squid-sonar-focus), transparent 78%);
+}
+
+.squid-sonar-run-jump.is-invalid .squid-sonar-run-jump-control {
+  border-color: var(--squid-sonar-danger);
+}
+
+.squid-sonar-run-jump-field {
+  align-items: center;
+  color: var(--squid-sonar-muted);
+  display: flex;
+  flex: 1 1 auto;
+  gap: 7px;
+  min-width: 0;
+  padding-left: 10px;
+}
+
+.squid-sonar-run-jump-field svg {
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
+}
+
+.squid-sonar-run-jump-field input {
+  background: transparent;
+  border: 0;
+  color: var(--squid-sonar-text);
+  font: inherit;
+  font-size: 12px;
+  min-width: 0;
+  outline: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.squid-sonar-run-jump-field input::placeholder {
+  color: var(--squid-sonar-subtle);
+}
+
+.squid-sonar-run-jump-submit {
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--squid-sonar-border);
+  color: var(--squid-sonar-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 10px;
+}
+
+.squid-sonar-run-jump-submit:hover,
+.squid-sonar-run-jump-submit:focus-visible {
+  background: var(--squid-sonar-surface);
+  color: var(--squid-sonar-text);
+  outline: 0;
+}
+
+.squid-sonar-jump-error {
+  background: var(--squid-sonar-alert-bg);
+  border: 1px solid var(--squid-sonar-alert-border);
+  border-radius: 6px;
+  color: var(--squid-sonar-text);
+  font-size: 11px;
+  line-height: 1.35;
+  max-width: 280px;
+  padding: 6px 8px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+}
+
 .squid-sonar-brand {
   gap: 10px;
   min-width: 0;
@@ -2574,6 +2667,16 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
     align-items: stretch;
     flex-direction: column;
     justify-content: space-between;
+  }
+
+  .squid-sonar-run-jump {
+    width: 100%;
+  }
+
+  .squid-sonar-jump-error {
+    margin-top: var(--squid-sonar-space-1);
+    max-width: none;
+    position: static;
   }
 
   .squid-sonar-operator-nav {
