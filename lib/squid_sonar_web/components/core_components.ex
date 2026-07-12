@@ -285,6 +285,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
   attr :dashboard, :map, required: true
   attr :prefix, :string, default: ""
+  attr :advanced_filters_open?, :boolean, default: false
   attr :saved_specs_count, :integer, default: 0
   attr :saved_specs_open?, :boolean, default: false
   slot :saved_workflows
@@ -382,9 +383,9 @@ defmodule SquidSonarWeb.CoreComponents do
 
         <details
           class="squid-sonar-advanced-filters"
-          open={advanced_filters_active?(@dashboard.filters)}
+          open={@advanced_filters_open? or advanced_filters_active?(@dashboard.filters)}
         >
-          <summary>
+          <summary phx-click="toggle_advanced_filters">
             <span>Advanced filters</span>
             <span class="squid-sonar-advanced-filters-hint">Terminal, time, actions, deadline</span>
           </summary>

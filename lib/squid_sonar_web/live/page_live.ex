@@ -27,6 +27,7 @@ defmodule SquidSonarWeb.PageLive do
       |> assign(:page_title, "SquidSonar Runtime")
       |> assign(:theme, :system)
       |> assign(:jump_error, nil)
+      |> assign(:advanced_filters_open?, false)
       |> assign(:saved_specs_open?, false)
       |> assign_runtime_spec_start()
       |> assign_saved_specs()
@@ -147,6 +148,11 @@ defmodule SquidSonarWeb.PageLive do
   @impl Phoenix.LiveView
   def handle_event("toggle_saved_specs", _params, socket) do
     {:noreply, update(socket, :saved_specs_open?, &(!&1))}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("toggle_advanced_filters", _params, socket) do
+    {:noreply, update(socket, :advanced_filters_open?, &(!&1))}
   end
 
   @impl Phoenix.LiveView
@@ -325,6 +331,7 @@ defmodule SquidSonarWeb.PageLive do
                 <.runs_panel
                   dashboard={@dashboard}
                   prefix={@prefix}
+                  advanced_filters_open?={@advanced_filters_open?}
                   saved_specs_count={length(@saved_spec_catalog)}
                   saved_specs_open?={@saved_specs_open?}
                 >

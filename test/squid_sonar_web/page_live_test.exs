@@ -219,6 +219,25 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert page_path =~ "page_size=25"
   end
 
+  test "keeps advanced filters open across dashboard refreshes" do
+    FakeSquidieClient.put_list_runs({:ok, [summary(:running, "checkout", "default")]})
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+    {:noreply, open_socket} = PageLive.handle_event("toggle_advanced_filters", %{}, socket)
+
+    assert open_socket.assigns.advanced_filters_open?
+
+    assert rendered_to_string(PageLive.render(open_socket.assigns)) =~
+             ~r/<details[^>]*squid-sonar-advanced-filters[^>]*open/
+
+    {:noreply, refreshed_socket} = PageLive.handle_event("refresh", %{}, open_socket)
+
+    assert refreshed_socket.assigns.advanced_filters_open?
+
+    assert rendered_to_string(PageLive.render(refreshed_socket.assigns)) =~
+             ~r/<details[^>]*squid-sonar-advanced-filters[^>]*open/
+  end
+
   test "handle_params patches invalid and out-of-range state to its canonical URL" do
     FakeSquidieClient.put_list_runs({:ok, [summary(:running, "checkout", "default")]})
 
