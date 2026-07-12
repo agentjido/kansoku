@@ -447,7 +447,7 @@ defmodule SquidSonarWeb.PageLive do
     ~H"""
     <section class="squid-sonar-saved-specs-panel" aria-label="Saved workflow specs">
       <div class="squid-sonar-panel-heading">
-        <div>
+        <div class="squid-sonar-section-heading-copy">
           <p class="squid-sonar-eyebrow">Saved specs</p>
           <h2>Saved workflow specs</h2>
         </div>

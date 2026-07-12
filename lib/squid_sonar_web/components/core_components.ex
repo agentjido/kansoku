@@ -263,7 +263,7 @@ defmodule SquidSonarWeb.CoreComponents do
     ~H"""
     <section class="squid-sonar-panel squid-sonar-runs-panel">
       <div class="squid-sonar-panel-heading squid-sonar-runs-panel-heading">
-        <div>
+        <div class="squid-sonar-section-heading-copy">
           <p class="squid-sonar-eyebrow">Recent execution activity across the host runtime.</p>
           <h2>Workflow runs</h2>
         </div>
@@ -275,7 +275,7 @@ defmodule SquidSonarWeb.CoreComponents do
 
       <div class="squid-sonar-panel-actions squid-sonar-runs-panel-filters">
         <div class="squid-sonar-filter-controls squid-sonar-filter-controls-primary">
-          <label class="squid-sonar-search">
+          <label class="squid-sonar-search squid-sonar-search-query">
             <span>Search</span>
             <input
               type="search"
@@ -286,7 +286,7 @@ defmodule SquidSonarWeb.CoreComponents do
             />
           </label>
 
-          <label class="squid-sonar-search">
+          <label class="squid-sonar-search squid-sonar-search-prefix">
             <span>Run ID prefix</span>
             <input
               type="search"

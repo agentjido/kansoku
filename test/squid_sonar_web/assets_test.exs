@@ -26,6 +26,8 @@ defmodule SquidSonarWeb.AssetsTest do
              ~r/\.squid-sonar-filter-controls\s*\{[^}]*grid-template-columns: repeat\(4,/s
 
     assert conn.resp_body =~ ".squid-sonar-advanced-filters"
+    assert conn.resp_body =~ ".squid-sonar-section-heading-copy h2"
+    assert conn.resp_body =~ ".squid-sonar-filter-controls-primary"
     assert conn.resp_body =~ "border-radius: 4px"
 
     assert conn.resp_body =~
