@@ -63,7 +63,7 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert html =~ "squid-sonar-section-heading-copy"
     assert html =~ "squid-sonar-search-query"
     assert html =~ "squid-sonar-search-prefix"
-    assert html =~ "Recent execution activity across the host runtime."
+    assert html =~ "Recent execution activity across the host runtime"
     assert html =~ "Advanced filters"
     assert html =~ "squid-sonar-filter-controls-primary"
     assert html =~ "squid-sonar-filter-controls-advanced"

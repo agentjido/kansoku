@@ -295,7 +295,7 @@ defmodule SquidSonarWeb.CoreComponents do
     ~H"""
     <section class="squid-sonar-panel squid-sonar-runs-panel">
       <.panel_heading
-        eyebrow="Recent execution activity across the host runtime."
+        eyebrow="Recent execution activity across the host runtime"
         title="Workflow runs"
         class="squid-sonar-runs-panel-heading"
       >
