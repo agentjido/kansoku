@@ -545,11 +545,60 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 
 .squid-sonar-filter-controls {
   align-items: flex-end;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   min-width: 0;
   width: 100%;
+}
+
+.squid-sonar-runs-panel-filters {
+  border-bottom: 1px solid var(--squid-sonar-border);
+  min-width: 0;
+  padding: var(--squid-sonar-space-4) var(--squid-sonar-space-5);
+}
+
+.squid-sonar-runs-panel-filters .squid-sonar-search,
+.squid-sonar-runs-panel-filters .squid-sonar-select-filter {
+  min-width: 0;
+}
+
+.squid-sonar-advanced-filters {
+  border-top: 1px solid var(--squid-sonar-border);
+  margin-top: var(--squid-sonar-space-3);
+  padding-top: var(--squid-sonar-space-3);
+}
+
+.squid-sonar-advanced-filters summary {
+  align-items: center;
+  color: var(--squid-sonar-text);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  list-style: none;
+  margin-bottom: 0;
+}
+
+.squid-sonar-advanced-filters summary::before {
+  content: "+";
+  font-size: 15px;
+  line-height: 1;
+}
+
+.squid-sonar-advanced-filters[open] summary::before {
+  content: "−";
+}
+
+.squid-sonar-advanced-filters[open] summary {
+  margin-bottom: var(--squid-sonar-space-3);
+}
+
+.squid-sonar-advanced-filters-hint {
+  color: var(--squid-sonar-muted);
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .squid-sonar-select-filter {
@@ -2376,8 +2425,7 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   }
 
   .squid-sonar-filter-controls {
-    align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .squid-sonar-select-filter {
@@ -2472,6 +2520,14 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 
   .squid-sonar-panel-heading {
     grid-template-columns: 1fr;
+  }
+
+  .squid-sonar-filter-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .squid-sonar-advanced-filters-hint {
+    display: none;
   }
 
   .squid-sonar-panel-tools {

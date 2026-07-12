@@ -21,7 +21,11 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ ".squid-sonar-badge"
     assert conn.resp_body =~ ".squid-sonar-queue-content"
     assert conn.resp_body =~ ".squid-sonar-schedule-status"
-    assert conn.resp_body =~ ~r/\.squid-sonar-filter-controls\s*\{[^}]*flex-wrap: wrap;/s
+
+    assert conn.resp_body =~
+             ~r/\.squid-sonar-filter-controls\s*\{[^}]*grid-template-columns: repeat\(4,/s
+
+    assert conn.resp_body =~ ".squid-sonar-advanced-filters"
     assert conn.resp_body =~ "border-radius: 4px"
 
     assert conn.resp_body =~

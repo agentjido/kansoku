@@ -57,6 +57,12 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert html =~ "Runtime dashboard"
     assert html =~ "phx-hook=\"SquidSonarTheme\""
     assert html =~ "Workflow runs"
+    assert html =~ "squid-sonar-runs-panel-heading"
+    assert html =~ "squid-sonar-runs-panel-filters"
+    assert html =~ "Recent execution activity across the host runtime."
+    assert html =~ "Advanced filters"
+    assert html =~ "squid-sonar-filter-controls-primary"
+    assert html =~ "squid-sonar-filter-controls-advanced"
     assert html =~ "squid-sonar-filter-toggle"
     assert html =~ "Filters"
     refute html =~ "squid-sonar-overview"
@@ -150,6 +156,7 @@ defmodule SquidSonarWeb.PageLiveTest do
     assert html =~ ~s(name="filters[queue]")
     assert html =~ ~s(value="billing" selected)
     assert html =~ ~s(name="filters[window]")
+    assert html =~ ~r/<details[^>]*squid-sonar-advanced-filters[^>]*open/
     assert html =~ "Copy run ID"
     assert html =~ "Copy workflow"
     assert filtered_socket.assigns.dashboard.page_size == 25

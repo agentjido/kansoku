@@ -261,66 +261,82 @@ defmodule SquidSonarWeb.CoreComponents do
   @spec runs_panel(map()) :: Phoenix.LiveView.Rendered.t()
   def runs_panel(assigns) do
     ~H"""
-    <section class="squid-sonar-panel">
-      <div class="squid-sonar-panel-heading">
-        <div class="squid-sonar-panel-title">
+    <section class="squid-sonar-panel squid-sonar-runs-panel">
+      <div class="squid-sonar-panel-heading squid-sonar-runs-panel-heading">
+        <div>
+          <p class="squid-sonar-eyebrow">Recent execution activity across the host runtime.</p>
           <h2>Workflow runs</h2>
-          <p>Recent execution activity across the host runtime.</p>
         </div>
 
-        <div class="squid-sonar-panel-actions">
-          <div class="squid-sonar-filter-controls">
-            <label class="squid-sonar-search">
-              <span>Search</span>
-              <input
-                type="search"
-                name="filters[query]"
-                value={@dashboard.filters.query}
-                placeholder="Workflow, queue, status, run ID"
-                phx-debounce="250"
-              />
-            </label>
+        <div class="squid-sonar-panel-tools">
+          <.refresh_button />
+        </div>
+      </div>
 
-            <label class="squid-sonar-search">
-              <span>Run ID prefix</span>
-              <input
-                type="search"
-                name="filters[run_id]"
-                value={@dashboard.filters.run_id}
-                placeholder="run-abc"
-                maxlength="128"
-                phx-debounce="250"
-              />
-            </label>
+      <div class="squid-sonar-panel-actions squid-sonar-runs-panel-filters">
+        <div class="squid-sonar-filter-controls squid-sonar-filter-controls-primary">
+          <label class="squid-sonar-search">
+            <span>Search</span>
+            <input
+              type="search"
+              name="filters[query]"
+              value={@dashboard.filters.query}
+              placeholder="Workflow, queue, status, run ID"
+              phx-debounce="250"
+            />
+          </label>
 
-            <label class="squid-sonar-select-filter">
-              <span>Workflow</span>
-              <select name="filters[workflow]">
-                <option value="">All workflows</option>
-                <option
-                  :for={workflow <- @dashboard.workflows}
-                  value={workflow}
-                  selected={@dashboard.filters.workflow == workflow}
-                >
-                  {format_workflow(workflow)}
-                </option>
-              </select>
-            </label>
+          <label class="squid-sonar-search">
+            <span>Run ID prefix</span>
+            <input
+              type="search"
+              name="filters[run_id]"
+              value={@dashboard.filters.run_id}
+              placeholder="run-abc"
+              maxlength="128"
+              phx-debounce="250"
+            />
+          </label>
 
-            <label class="squid-sonar-select-filter">
-              <span>Queue</span>
-              <select name="filters[queue]">
-                <option value="">All queues</option>
-                <option
-                  :for={queue <- @dashboard.queues}
-                  value={queue}
-                  selected={@dashboard.filters.queue == queue}
-                >
-                  {queue}
-                </option>
-              </select>
-            </label>
+          <label class="squid-sonar-select-filter">
+            <span>Workflow</span>
+            <select name="filters[workflow]">
+              <option value="">All workflows</option>
+              <option
+                :for={workflow <- @dashboard.workflows}
+                value={workflow}
+                selected={@dashboard.filters.workflow == workflow}
+              >
+                {format_workflow(workflow)}
+              </option>
+            </select>
+          </label>
 
+          <label class="squid-sonar-select-filter">
+            <span>Queue</span>
+            <select name="filters[queue]">
+              <option value="">All queues</option>
+              <option
+                :for={queue <- @dashboard.queues}
+                value={queue}
+                selected={@dashboard.filters.queue == queue}
+              >
+                {queue}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <details
+          class="squid-sonar-advanced-filters"
+          open={advanced_filters_active?(@dashboard.filters)}
+        >
+          <summary>
+            <span>Advanced filters</span>
+            <span class="squid-sonar-advanced-filters-hint">Terminal, time, actions, deadline</span>
+          </summary>
+
+          <div class="squid-sonar-filter-controls squid-sonar-filter-controls-advanced">
             <label class="squid-sonar-select-filter">
               <span>Terminal</span>
               <select name="filters[terminal]">
@@ -376,11 +392,7 @@ defmodule SquidSonarWeb.CoreComponents do
               </select>
             </label>
           </div>
-        </div>
-
-        <div class="squid-sonar-panel-tools">
-          <.refresh_button />
-        </div>
+        </details>
       </div>
 
       <%= if @dashboard.runs == [] do %>
@@ -408,6 +420,11 @@ defmodule SquidSonarWeb.CoreComponents do
       {:"7d", "Last 7 days"},
       {:"30d", "Last 30 days"}
     ]
+  end
+
+  defp advanced_filters_active?(filters) do
+    filters.terminal != :all or filters.window != :all or filters.manual != :all or
+      filters.deadline != :all
   end
 
   attr :runs, :list, required: true
