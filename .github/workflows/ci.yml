@@ -38,6 +38,9 @@ jobs:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
 
+      - name: Check release metadata preparation
+        run: bash .github/tests/release_prep_test.sh
+
       - name: Check formatting
         run: mix format --check-formatted
 

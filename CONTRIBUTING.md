@@ -53,3 +53,21 @@ make new dashboard behavior visible with real Squidie workflow data.
 - Include the exact verification commands you ran.
 - Include screenshots or video for UI changes when practical.
 - Do not include secrets, local paths, hostnames, or machine-specific metadata.
+
+## Releases
+
+Package releases are created by the **Release Hex Package** GitHub Actions
+workflow. Before dispatching it:
+
+1. Merge the intended release changes into `main` and curate the
+   `CHANGELOG.md` **Unreleased** section.
+2. Configure a protected `hex-publish` GitHub environment with a
+   publish-capable `HEX_SECRET_KEY` secret. Environment approval is recommended.
+3. Run the workflow with a SemVer version without the leading `v`, such as
+   `0.2.1`.
+
+The workflow verifies the requested version, prepares and commits release
+metadata, runs the root and example-app test suites, builds the Hex package,
+creates and pushes an annotated tag, creates the GitHub Release, and publishes
+to Hex.pm. Repository branch protection must allow the workflow's GitHub token
+to push the generated release commit to `main`.
