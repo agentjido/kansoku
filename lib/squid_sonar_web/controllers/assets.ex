@@ -92,6 +92,36 @@ defmodule SquidSonarWeb.Assets do
         window.clearTimeout(this.dismissTimer);
         this.dismissTimer = window.setTimeout(() => this.pushEvent("clear_flash", {}), 5000);
       }
+    },
+    SquidSonarCopy: {
+      mounted() {
+        this.handleClick = async () => {
+          const target = document.getElementById(this.el.dataset.copyTarget);
+          if (!target) return;
+
+          const text = target.textContent?.trim();
+          if (!text) return;
+
+          try {
+            await navigator.clipboard.writeText(text);
+            const label = this.el.dataset.copyLabel || "Copy";
+            this.el.textContent = "Copied";
+            this.el.setAttribute("aria-label", `${label}: copied`);
+            window.setTimeout(() => {
+              this.el.textContent = label;
+              this.el.setAttribute("aria-label", label);
+            }, 1500);
+          } catch (_error) {
+            this.el.textContent = "Copy failed";
+            this.el.setAttribute("aria-label", "Copy failed");
+          }
+        };
+
+        this.el.addEventListener("click", this.handleClick);
+      },
+      destroyed() {
+        this.el.removeEventListener("click", this.handleClick);
+      }
     }
   };
 

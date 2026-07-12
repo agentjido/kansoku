@@ -181,7 +181,10 @@ defmodule SquidSonarWeb.RunLive do
             <h1>SquidSonar</h1>
           </div>
         </.link>
-        <.theme_switcher theme={@theme} />
+        <div class="squid-sonar-topbar-actions">
+          <.operator_nav prefix={@prefix} current={:runs} />
+          <.theme_switcher theme={@theme} />
+        </div>
       </header>
 
       <.flash_messages flash={visible_flash(assigns)} />

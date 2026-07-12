@@ -74,6 +74,7 @@ defmodule SquidSonarWeb.SavedSpecLive do
           </div>
         </.link>
         <div class="squid-sonar-topbar-actions">
+          <.operator_nav prefix={@prefix} current={:workflows} />
           <.theme_switcher theme={@theme} />
         </div>
       </header>

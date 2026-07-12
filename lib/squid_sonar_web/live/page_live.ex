@@ -14,7 +14,9 @@ defmodule SquidSonarWeb.PageLive do
   @default_payload_json "{\n}"
 
   @impl Phoenix.LiveView
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
+    dashboard_params = Dashboard.normalize_params(params)
+
     socket =
       socket
       |> assign_new(:prefix, fn -> "" end)
@@ -24,47 +26,87 @@ defmodule SquidSonarWeb.PageLive do
       |> assign_new(:action_registry, fn -> nil end)
       |> assign(:page_title, "SquidSonar Runtime")
       |> assign(:theme, :system)
+      |> assign(:jump_error, nil)
       |> assign_runtime_spec_start()
       |> assign_saved_specs()
-      |> assign_dashboard()
+      |> assign_dashboard(
+        filters: dashboard_params.filters,
+        page: dashboard_params.page,
+        page_size: dashboard_params.page_size
+      )
       |> schedule_dashboard_refresh()
 
     {:ok, socket}
   end
 
   @impl Phoenix.LiveView
+  def handle_params(params, uri, socket) do
+    dashboard_params = Dashboard.normalize_params(params)
+
+    loaded_socket =
+      if dashboard_state_matches?(socket.assigns.dashboard, dashboard_params) do
+        socket
+      else
+        assign_dashboard(socket,
+          filters: dashboard_params.filters,
+          page: dashboard_params.page,
+          page_size: dashboard_params.page_size
+        )
+      end
+
+    socket = assign(loaded_socket, :jump_error, nil)
+    dashboard = socket.assigns.dashboard
+
+    canonical_path =
+      dashboard_path(socket, dashboard.filters, dashboard.page, dashboard.page_size)
+
+    if request_path(uri) == canonical_path do
+      {:noreply, socket}
+    else
+      {:noreply, push_patch(socket, to: canonical_path)}
+    end
+  end
+
+  @impl Phoenix.LiveView
   def handle_event("refresh", _params, socket) do
     dashboard = socket.assigns.dashboard
 
-    {:noreply,
-     assign_dashboard(socket,
-       filters: dashboard.filters,
-       page: dashboard.page,
-       page_size: dashboard.page_size
-     )}
+    refreshed_socket =
+      assign_dashboard(socket,
+        filters: dashboard.filters,
+        page: dashboard.page,
+        page_size: dashboard.page_size
+      )
+
+    {:noreply, maybe_patch_clamped_page(refreshed_socket, dashboard.page)}
   end
 
   @impl Phoenix.LiveView
   def handle_event("filter", params, socket) do
-    {:noreply,
-     assign_dashboard(socket,
-       filters: Map.get(params, "filters", %{}),
-       page_size: Map.get(params, "page_size"),
-       page: 1
-     )}
+    dashboard_params =
+      params
+      |> Map.get("filters", %{})
+      |> Map.put("page_size", Map.get(params, "page_size"))
+      |> Map.put("page", 1)
+      |> Dashboard.normalize_params()
+
+    {:noreply, assign_dashboard_and_patch(socket, dashboard_params)}
   end
 
   @impl Phoenix.LiveView
   def handle_event("paginate", %{"page" => page} = params, socket) do
     dashboard = socket.assigns.dashboard
 
-    {:noreply,
-     assign_dashboard(socket,
-       filters: dashboard.filters,
-       page_size:
-         Map.get(params, "page_size") || Map.get(params, "page-size") || dashboard.page_size,
-       page: page
-     )}
+    page_size =
+      Map.get(params, "page_size") || Map.get(params, "page-size") || dashboard.page_size
+
+    dashboard_params = %{
+      filters: dashboard.filters,
+      page: page,
+      page_size: page_size
+    }
+
+    {:noreply, assign_dashboard_and_patch(socket, dashboard_params)}
   end
 
   @impl Phoenix.LiveView
@@ -75,6 +117,25 @@ defmodule SquidSonarWeb.PageLive do
   @impl Phoenix.LiveView
   def handle_event("paginate_next", params, socket) do
     handle_event("paginate", params, socket)
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("jump_to_run", %{"jump" => %{"run_id" => prefix}}, socket) do
+    resolver_opts = [
+      visibility_actor: Map.get(socket.assigns, :visibility_actor, "squid_sonar"),
+      visibility_policy: Map.get(socket.assigns, :visibility_policy, :operator)
+    ]
+
+    case Dashboard.resolve_run_prefix(prefix, resolver_opts) do
+      {:ok, run_id} ->
+        {:noreply,
+         socket
+         |> assign(:jump_error, nil)
+         |> push_navigate(to: "#{socket.assigns.prefix}/runs/#{run_id}")}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, :jump_error, jump_error(reason))}
+    end
   end
 
   @impl Phoenix.LiveView
@@ -159,14 +220,16 @@ defmodule SquidSonarWeb.PageLive do
   def handle_info(:refresh_dashboard, socket) do
     dashboard = socket.assigns.dashboard
 
-    socket =
+    refreshed_socket =
       assign_dashboard(socket,
         filters: dashboard.filters,
         page: dashboard.page,
         page_size: dashboard.page_size
       )
 
-    {:noreply, schedule_dashboard_refresh(socket)}
+    result_socket = maybe_patch_clamped_page(refreshed_socket, dashboard.page)
+
+    {:noreply, schedule_dashboard_refresh(result_socket)}
   end
 
   @impl Phoenix.LiveView
@@ -185,9 +248,23 @@ defmodule SquidSonarWeb.PageLive do
           </div>
         </.link>
         <div class="squid-sonar-topbar-actions">
-          <.link navigate={@prefix <> "/queues"} class="squid-sonar-control-button">
-            Operator queues
-          </.link>
+          <.operator_nav prefix={@prefix} current={:runs} />
+          <form id="squid-sonar-run-jump" phx-submit="jump_to_run" class="squid-sonar-run-jump">
+            <label>
+              <span class="squid-sonar-visually-hidden">Jump to run ID</span>
+              <input
+                type="search"
+                name="jump[run_id]"
+                placeholder="Run ID prefix"
+                autocomplete="off"
+                maxlength="128"
+              />
+            </label>
+            <button type="submit" class="squid-sonar-control-button">Jump</button>
+            <span :if={@jump_error} class="squid-sonar-jump-error" role="alert">
+              {@jump_error}
+            </span>
+          </form>
           <button
             :if={@runtime_spec_catalog != []}
             type="button"
@@ -203,7 +280,7 @@ defmodule SquidSonarWeb.PageLive do
       <%= if @dashboard.load_error do %>
         <.dashboard_error error={@dashboard.load_error} />
       <% else %>
-        <div class="squid-sonar-content">
+        <div id="workflow-runs" class="squid-sonar-content">
           <input
             id="squid-sonar-filter-toggle"
             class="squid-sonar-filter-toggle-input"
@@ -398,9 +475,67 @@ defmodule SquidSonarWeb.PageLive do
     """
   end
 
-  defp assign_dashboard(socket, opts \\ []) do
-    assign(socket, :dashboard, Dashboard.load(opts))
+  defp assign_dashboard(socket, opts) do
+    visibility_opts = [
+      visibility_actor: Map.get(socket.assigns, :visibility_actor, "squid_sonar"),
+      visibility_policy: Map.get(socket.assigns, :visibility_policy, :operator)
+    ]
+
+    assign(socket, :dashboard, Dashboard.load(Keyword.merge(visibility_opts, opts)))
   end
+
+  defp assign_dashboard_and_patch(socket, dashboard_params) do
+    socket =
+      assign_dashboard(socket,
+        filters: dashboard_params.filters,
+        page: dashboard_params.page,
+        page_size: dashboard_params.page_size
+      )
+
+    dashboard = socket.assigns.dashboard
+
+    push_patch(socket,
+      to: dashboard_path(socket, dashboard.filters, dashboard.page, dashboard.page_size)
+    )
+  end
+
+  defp dashboard_state_matches?(dashboard, params) do
+    dashboard.filters == params.filters and dashboard.page == params.page and
+      dashboard.page_size == params.page_size
+  end
+
+  defp dashboard_path(socket, filters, page, page_size) do
+    case Dashboard.query_params(filters, page, page_size) do
+      [] -> "#{socket.assigns.prefix}/"
+      params -> "#{socket.assigns.prefix}/?#{URI.encode_query(params)}"
+    end
+  end
+
+  defp maybe_patch_clamped_page(socket, previous_page) do
+    dashboard = socket.assigns.dashboard
+
+    if dashboard.page == previous_page do
+      socket
+    else
+      push_patch(socket,
+        to: dashboard_path(socket, dashboard.filters, dashboard.page, dashboard.page_size)
+      )
+    end
+  end
+
+  defp request_path(uri) do
+    parsed = URI.parse(uri)
+
+    case parsed.query do
+      nil -> parsed.path
+      query -> "#{parsed.path}?#{query}"
+    end
+  end
+
+  defp jump_error(:ambiguous), do: "Run ID prefix is ambiguous. Enter more characters."
+  defp jump_error(:not_found), do: "No recent run matches that ID prefix."
+  defp jump_error(:invalid_prefix), do: "Enter at least 3 valid run ID characters."
+  defp jump_error(:unavailable), do: "Unable to search recent runs."
 
   defp schedule_dashboard_refresh(socket) do
     if connected?(socket) do
@@ -467,6 +602,12 @@ defmodule SquidSonarWeb.PageLive do
 
   defp runtime_spec_catalog_entries(nil, runtime_spec),
     do: [runtime_spec_catalog_entry(nil, runtime_spec)]
+
+  defp runtime_spec_catalog_entries(%{}, runtime_spec),
+    do: runtime_spec_catalog_entries(nil, runtime_spec)
+
+  defp runtime_spec_catalog_entries([], runtime_spec),
+    do: runtime_spec_catalog_entries(nil, runtime_spec)
 
   defp runtime_spec_catalog_entries(runtime_specs, _runtime_spec) when is_map(runtime_specs) do
     Enum.map(runtime_specs, fn {key, spec} -> runtime_spec_catalog_entry(key, spec) end)

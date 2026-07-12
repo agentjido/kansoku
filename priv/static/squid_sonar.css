@@ -173,7 +173,111 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 }
 
 .squid-sonar-topbar-actions {
+  flex-wrap: wrap;
   gap: 10px;
+  justify-content: flex-end;
+}
+
+.squid-sonar-operator-nav {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.squid-sonar-operator-nav-link {
+  border-radius: 5px;
+  color: var(--squid-sonar-muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 9px;
+  text-decoration: none;
+}
+
+.squid-sonar-operator-nav-link:hover,
+.squid-sonar-operator-nav-link:focus-visible,
+.squid-sonar-operator-nav-link.is-active {
+  background: var(--squid-sonar-surface-raised);
+  color: var(--squid-sonar-text);
+}
+
+.squid-sonar-copy-button {
+  background: transparent;
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 5px;
+  color: var(--squid-sonar-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 8px;
+}
+
+.squid-sonar-copy-button:hover,
+.squid-sonar-copy-button:focus-visible {
+  border-color: var(--squid-sonar-focus);
+  color: var(--squid-sonar-text);
+}
+
+.squid-sonar-copy-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.squid-sonar-copy-row p {
+  margin: 0;
+}
+
+.squid-sonar-copy-row h2 {
+  margin-bottom: 0;
+}
+
+.squid-sonar-copy-controls,
+.squid-sonar-workflow-raw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.squid-sonar-workflow-raw-actions {
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.squid-sonar-settings-content {
+  display: grid;
+  gap: var(--squid-sonar-space-4);
+}
+
+.squid-sonar-settings-heading h2,
+.squid-sonar-settings-heading p {
+  margin-bottom: 0;
+}
+
+.squid-sonar-settings-grid {
+  display: grid;
+  gap: var(--squid-sonar-space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.squid-sonar-setting {
+  background: var(--squid-sonar-surface);
+  border: 1px solid var(--squid-sonar-border);
+  border-radius: 7px;
+  display: grid;
+  gap: 6px;
+  padding: var(--squid-sonar-space-4);
+}
+
+.squid-sonar-setting span {
+  color: var(--squid-sonar-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.squid-sonar-settings-json-panel {
+  padding: var(--squid-sonar-space-4);
 }
 
 .squid-sonar-flash-stack {
@@ -442,6 +546,7 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 .squid-sonar-filter-controls {
   align-items: flex-end;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   min-width: 0;
   width: 100%;
@@ -2282,7 +2387,8 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
 
   .squid-sonar-detail-grid,
   .squid-sonar-detail-columns,
-  .squid-sonar-saved-spec-grid {
+  .squid-sonar-saved-spec-grid,
+  .squid-sonar-settings-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2331,7 +2437,13 @@ body.squid-sonar-document:has(.squid-sonar-theme-dark) {
   }
 
   .squid-sonar-topbar-actions {
+    align-items: stretch;
+    flex-direction: column;
     justify-content: space-between;
+  }
+
+  .squid-sonar-operator-nav {
+    flex-wrap: wrap;
   }
 
   .squid-sonar-content {

@@ -1,6 +1,8 @@
 defmodule SquidSonar.DashboardTest do
   use ExUnit.Case, async: true
 
+  import SquidSonar.ReadModelFixtures
+
   alias Squidie.ReadModel.Listing.Summary
   alias SquidSonar.Dashboard
   alias SquidSonar.FakeSquidieClient
@@ -132,6 +134,225 @@ defmodule SquidSonar.DashboardTest do
     assert dashboard.filters.deadline == :escalated
     assert Enum.map(dashboard.runs, & &1.id) == ["escalated-run"]
     assert dashboard.filtered_count == 1
+  end
+
+  test "normalizes and serializes stable shareable filter params" do
+    normalized =
+      Dashboard.normalize_params(%{
+        "workflow" => "  BillingWorkflow  ",
+        "status" => "failed",
+        "terminal" => "cancelled",
+        "queue" => " billing ",
+        "window" => "24h",
+        "run_id" => "run-prefix",
+        "manual" => "waiting",
+        "deadline" => "overdue",
+        "query" => " invoice ",
+        "page" => "2",
+        "page_size" => "25",
+        "ignored" => "must-not-survive"
+      })
+
+    assert normalized.filters == %{
+             workflow: "BillingWorkflow",
+             status: :failed,
+             terminal: :cancelled,
+             queue: "billing",
+             window: :"24h",
+             run_id: "run-prefix",
+             manual: :waiting,
+             deadline: :overdue,
+             query: "invoice"
+           }
+
+    assert normalized.page == 2
+    assert normalized.page_size == 25
+
+    assert Dashboard.query_params(normalized.filters, normalized.page, normalized.page_size) == [
+             {"workflow", "BillingWorkflow"},
+             {"status", "failed"},
+             {"terminal", "cancelled"},
+             {"queue", "billing"},
+             {"window", "24h"},
+             {"run_id", "run-prefix"},
+             {"manual", "waiting"},
+             {"deadline", "overdue"},
+             {"query", "invoice"},
+             {"page", "2"},
+             {"page_size", "25"}
+           ]
+  end
+
+  test "drops unknown, nested, and oversized filter values" do
+    oversized = String.duplicate("x", 300)
+
+    normalized =
+      Dashboard.normalize_params(%{
+        "workflow" => %{"nested" => "value"},
+        "status" => "not-a-status",
+        "terminal" => ["failed"],
+        "queue" => oversized,
+        "window" => "yesterday",
+        "run_id" => "bad/path",
+        "manual" => "sometimes",
+        "page" => "-2",
+        "page_size" => "500"
+      })
+
+    assert normalized.filters.workflow == ""
+    assert normalized.filters.status == :all
+    assert normalized.filters.terminal == :all
+    assert normalized.filters.queue == ""
+    assert normalized.filters.window == :all
+    assert normalized.filters.run_id == ""
+    assert normalized.filters.manual == :all
+    assert normalized.page == 1
+    assert normalized.page_size == 10
+  end
+
+  test "filters by workflow, terminal status, queue, time window, and run id prefix" do
+    FakeSquidieClient.put_list_runs(
+      {:ok,
+       [
+         summary(:failed,
+           run_id: "billing-recent-1",
+           workflow: "BillingWorkflow",
+           queue: "billing",
+           terminal_status: :failed,
+           indexed_at: DateTime.add(@loaded_at, -30, :minute)
+         ),
+         summary(:failed,
+           run_id: "billing-old-1",
+           workflow: "BillingWorkflow",
+           queue: "billing",
+           terminal_status: :failed,
+           indexed_at: DateTime.add(@loaded_at, -2, :hour)
+         ),
+         summary(:failed,
+           run_id: "shipping-recent-1",
+           workflow: "ShippingWorkflow",
+           queue: "shipping",
+           terminal_status: :failed,
+           indexed_at: DateTime.add(@loaded_at, -10, :minute)
+         )
+       ]}
+    )
+
+    dashboard =
+      Dashboard.load(
+        client: FakeSquidieClient,
+        loaded_at: @loaded_at,
+        filters: %{
+          "workflow" => "BillingWorkflow",
+          "terminal" => "failed",
+          "queue" => "billing",
+          "window" => "1h",
+          "run_id" => "billing-recent"
+        }
+      )
+
+    assert Enum.map(dashboard.runs, & &1.id) == ["billing-recent-1"]
+    assert dashboard.workflows == ["BillingWorkflow", "ShippingWorkflow"]
+    assert dashboard.queues == ["billing", "shipping"]
+  end
+
+  test "filters manual-action state through visibility-aware queue inspection" do
+    all_runs = [
+      summary(:paused, run_id: "manual-run", workflow: "ReviewWorkflow"),
+      summary(:paused, run_id: "ordinary-paused-run", workflow: "WaitWorkflow"),
+      summary(:running, run_id: "running-run")
+    ]
+
+    FakeSquidieClient.put_list_runs(fn filters, _opts ->
+      if Keyword.get(filters, :status) == :paused do
+        {:ok, Enum.filter(all_runs, &(&1.status == :paused))}
+      else
+        {:ok, all_runs}
+      end
+    end)
+
+    FakeSquidieClient.put_inspect_run(fn
+      "manual-run", _opts ->
+        {:ok,
+         snapshot(:paused,
+           run_id: "manual-run",
+           workflow: "ReviewWorkflow",
+           terminal?: false,
+           manual_state: %{kind: "approval", step: "review"}
+         )}
+
+      "ordinary-paused-run", _opts ->
+        {:ok,
+         snapshot(:paused,
+           run_id: "ordinary-paused-run",
+           workflow: "WaitWorkflow",
+           terminal?: false,
+           manual_state: nil
+         )}
+    end)
+
+    waiting =
+      Dashboard.load(
+        client: FakeSquidieClient,
+        loaded_at: @loaded_at,
+        filters: %{"manual" => "waiting"},
+        visibility_actor: "operator-1",
+        visibility_policy: :operator
+      )
+
+    assert Enum.map(waiting.runs, & &1.id) == ["manual-run"]
+
+    none =
+      Dashboard.load(
+        client: FakeSquidieClient,
+        loaded_at: @loaded_at,
+        filters: %{"manual" => "none"},
+        visibility_actor: "operator-1",
+        visibility_policy: :operator
+      )
+
+    assert MapSet.new(none.runs, & &1.id) ==
+             MapSet.new(["running-run", "ordinary-paused-run"])
+  end
+
+  test "preserves stale selected workflow and queue values for shareable controls" do
+    FakeSquidieClient.put_list_runs({:ok, []})
+
+    dashboard =
+      Dashboard.load(
+        client: FakeSquidieClient,
+        filters: %{"workflow" => "ArchivedWorkflow", "queue" => "archived"}
+      )
+
+    assert dashboard.workflows == ["ArchivedWorkflow"]
+    assert dashboard.queues == ["archived"]
+    assert dashboard.runs == []
+  end
+
+  test "resolves only unique, valid run id prefixes from recent visible summaries" do
+    FakeSquidieClient.put_list_runs(
+      {:ok,
+       [
+         summary(:running, run_id: "run-alpha-001"),
+         summary(:running, run_id: "run-alpha-002"),
+         summary(:completed, run_id: "run-beta-001")
+       ]}
+    )
+
+    assert {:ok, "run-beta-001"} =
+             Dashboard.resolve_run_prefix("run-beta", client: FakeSquidieClient)
+
+    assert {:ok, "run-alpha-001"} =
+             Dashboard.resolve_run_prefix("run-alpha-001", client: FakeSquidieClient)
+
+    assert {:error, :ambiguous} =
+             Dashboard.resolve_run_prefix("run-alpha", client: FakeSquidieClient)
+
+    assert {:error, :not_found} =
+             Dashboard.resolve_run_prefix("run-missing", client: FakeSquidieClient)
+
+    assert {:error, :invalid_prefix} =
+             Dashboard.resolve_run_prefix("../runs/secret", client: FakeSquidieClient)
   end
 
   test "keeps error state at the dashboard boundary" do

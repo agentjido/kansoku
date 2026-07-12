@@ -21,6 +21,7 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ ".squid-sonar-badge"
     assert conn.resp_body =~ ".squid-sonar-queue-content"
     assert conn.resp_body =~ ".squid-sonar-schedule-status"
+    assert conn.resp_body =~ ~r/\.squid-sonar-filter-controls\s*\{[^}]*flex-wrap: wrap;/s
     assert conn.resp_body =~ "border-radius: 4px"
 
     assert conn.resp_body =~
@@ -61,6 +62,9 @@ defmodule SquidSonarWeb.AssetsTest do
     assert conn.resp_body =~ "squid-sonar-theme"
     assert conn.resp_body =~ "SquidSonarTheme"
     assert conn.resp_body =~ "SquidSonarFlash"
+    assert conn.resp_body =~ "SquidSonarCopy"
+    assert conn.resp_body =~ "navigator.clipboard.writeText"
+    assert conn.resp_body =~ "target.textContent"
   end
 
   test "serves packaged LiveView client dependencies" do

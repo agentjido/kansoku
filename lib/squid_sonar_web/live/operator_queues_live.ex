@@ -51,9 +51,7 @@ defmodule SquidSonarWeb.OperatorQueuesLive do
           </div>
         </.link>
         <div class="squid-sonar-topbar-actions">
-          <.link navigate={@prefix <> "/"} class="squid-sonar-control-button">
-            Recent runs
-          </.link>
+          <.operator_nav prefix={@prefix} current={:queues} />
           <.theme_switcher theme={@theme} />
         </div>
       </header>
