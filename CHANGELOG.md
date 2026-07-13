@@ -4,6 +4,8 @@ All notable changes to SquidSonar will be documented in this file.
 
 ## Unreleased
 
+## 0.3.0 - 2026-07-13
+
 - Added shareable dashboard filters, safe run-ID prefix navigation, shared
   operator navigation, visible-value copy controls, and a read-only settings
   page with an allowlisted runtime projection.
