@@ -86,6 +86,21 @@ defmodule SquidSonar.RunsTest do
   defmodule MissingWorkflow do
   end
 
+  defmodule LegacyTimelineClient do
+    @spec inspect_run(term(), keyword()) ::
+            {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
+    def inspect_run(run_id, opts), do: SquidSonar.FakeSquidieClient.inspect_run(run_id, opts)
+
+    @spec inspect_run_graph(term(), keyword()) ::
+            {:ok, Squidie.Runs.GraphInspection.t()} | {:error, term()}
+    def inspect_run_graph(run_id, opts),
+      do: SquidSonar.FakeSquidieClient.inspect_run_graph(run_id, opts)
+
+    @spec explain_run(term(), keyword()) ::
+            {:ok, Squidie.ReadModel.Explanation.Diagnostic.t()} | {:error, term()}
+    def explain_run(run_id, opts), do: SquidSonar.FakeSquidieClient.explain_run(run_id, opts)
+  end
+
   alias Squidie.ReadModel.Listing.Summary
   alias SquidSonar.FakeSquidieClient
   alias SquidSonar.Runs
@@ -369,6 +384,61 @@ defmodule SquidSonar.RunsTest do
              }
 
     assert Enum.find(detail.workflow_graph.nodes, &(&1.name == "capture_payment")).recovery == nil
+  end
+
+  test "marks snapshot timelines partial for legacy clients without the timeline callback" do
+    run_id = "run-legacy-timeline"
+    workflow = Atom.to_string(CheckoutWorkflow)
+
+    FakeSquidieClient.put_inspect_run(
+      {:ok, snapshot(:running, run_id: run_id, workflow: workflow)}
+    )
+
+    FakeSquidieClient.put_inspect_run_graph(
+      {:ok, graph_inspection(:running, run_id: run_id, workflow: workflow)}
+    )
+
+    FakeSquidieClient.put_explain_run(
+      {:ok, diagnostic(:running, run_id: run_id, workflow: workflow)}
+    )
+
+    assert {:ok, detail} = Runs.get_run(run_id, client: LegacyTimelineClient)
+    assert detail.timeline.run_id == run_id
+    assert detail.timeline_partial?
+  end
+
+  test "rejects a timeline returned for a different run" do
+    run_id = "run-requested-timeline"
+    workflow = Atom.to_string(CheckoutWorkflow)
+
+    FakeSquidieClient.put_inspect_run(
+      {:ok, snapshot(:running, run_id: run_id, workflow: workflow)}
+    )
+
+    FakeSquidieClient.put_inspect_run_graph(
+      {:ok, graph_inspection(:running, run_id: run_id, workflow: workflow)}
+    )
+
+    FakeSquidieClient.put_explain_run(
+      {:ok, diagnostic(:running, run_id: run_id, workflow: workflow)}
+    )
+
+    FakeSquidieClient.put_inspect_run_timeline(
+      {:ok,
+       %Squidie.ReadModel.Timeline{
+         run_id: "run-other-timeline",
+         workflow: workflow,
+         queue: "default",
+         status: :running,
+         terminal?: false,
+         terminal_status: nil,
+         events: []
+       }}
+    )
+
+    assert {:ok, detail} = Runs.get_run(run_id, client: @client)
+    assert detail.timeline.run_id == run_id
+    assert detail.timeline_partial?
   end
 
   test "redacts every run detail read model before projection" do

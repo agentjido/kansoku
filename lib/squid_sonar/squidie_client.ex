@@ -14,6 +14,11 @@ defmodule SquidSonar.SquidieClient do
   @callback inspect_run(term(), keyword()) ::
               {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
   @doc """
+  Loads the chronological, redaction-safe timeline for a run.
+  """
+  @callback inspect_run_timeline(term(), keyword()) ::
+              {:ok, Squidie.ReadModel.Timeline.t()} | {:error, term()}
+  @doc """
   Loads graph inspection data for a run.
   """
   @callback inspect_run_graph(term(), keyword()) ::
@@ -60,6 +65,8 @@ defmodule SquidSonar.SquidieClient do
   @callback start_spec(term(), map(), keyword()) ::
               {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
 
+  @optional_callbacks inspect_run_timeline: 2
+
   @doc """
   Lists recent Squidie runs through the configured runtime.
   """
@@ -73,6 +80,13 @@ defmodule SquidSonar.SquidieClient do
   @spec inspect_run(term(), keyword()) ::
           {:ok, Squidie.ReadModel.Inspection.Snapshot.t()} | {:error, term()}
   def inspect_run(run_id, opts), do: Squidie.inspect_run(run_id, opts)
+
+  @doc """
+  Loads a run timeline from Squidie.
+  """
+  @spec inspect_run_timeline(term(), keyword()) ::
+          {:ok, Squidie.ReadModel.Timeline.t()} | {:error, term()}
+  def inspect_run_timeline(run_id, opts), do: Squidie.inspect_run_timeline(run_id, opts)
 
   @doc """
   Loads graph inspection data for a Squidie run.

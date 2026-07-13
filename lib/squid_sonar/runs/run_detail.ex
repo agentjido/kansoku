@@ -5,6 +5,8 @@ defmodule SquidSonar.Runs.RunDetail do
 
   alias Squidie.ReadModel.Explanation.Diagnostic
   alias Squidie.ReadModel.Inspection.Snapshot
+  alias Squidie.ReadModel.Timeline
+  alias Squidie.ReadModel.Timeline.Event
   alias Squidie.Runs.GraphInspection
   alias SquidSonar.Runs.WorkflowGraph
 
@@ -226,6 +228,8 @@ defmodule SquidSonar.Runs.RunDetail do
           dynamic_work_overlays: [DynamicWorkOverlay.t()],
           deferred_continuations: [DeferredContinuation.t()],
           live_claims: [LiveClaim.t()],
+          timeline: Timeline.t(),
+          timeline_partial?: boolean(),
           controls_allowed?: boolean()
         }
 
@@ -237,7 +241,9 @@ defmodule SquidSonar.Runs.RunDetail do
     :explanation,
     :graph_inspection,
     :workflow_graph,
+    :timeline,
     controls_allowed?: false,
+    timeline_partial?: false,
     recovery_policies: [],
     compensation_evidence: [],
     dynamic_work: [],
@@ -249,12 +255,42 @@ defmodule SquidSonar.Runs.RunDetail do
     anomalies: []
   ]
 
-  @doc false
+  @doc """
+  Builds a run detail projection and derives its timeline from the visible snapshot.
+  """
   @spec from_models(Snapshot.t(), Diagnostic.t(), GraphInspection.t()) :: t()
   def from_models(%Snapshot{} = snapshot, %Diagnostic{} = explanation, %GraphInspection{} = graph) do
+    from_models(snapshot, explanation, graph, Timeline.from_snapshot(snapshot))
+  end
+
+  @doc """
+  Builds a run detail projection with a host-provided visible timeline.
+
+  Set `:timeline_partial?` when the timeline was reconstructed from a fallback snapshot.
+  """
+  @spec from_models(Snapshot.t(), Diagnostic.t(), GraphInspection.t(), Timeline.t(), keyword()) ::
+          t()
+  def from_models(
+        %Snapshot{} = snapshot,
+        %Diagnostic{} = explanation,
+        %GraphInspection{} = graph,
+        %Timeline{} = timeline,
+        opts \\ []
+      ) do
     recovery_policies = recovery_policies(explanation)
     deferred_continuations = deferred_continuations(snapshot, explanation)
     live_claims = live_claims(snapshot, explanation)
+    dynamic_work_overlays = dynamic_work_overlays(graph.dynamic_work_overlays)
+    summary = summary(snapshot, explanation, graph)
+
+    timeline =
+      enrich_timeline(
+        timeline,
+        summary,
+        dynamic_work_overlays,
+        deferred_continuations,
+        live_claims
+      )
 
     graph_inspection =
       graph
@@ -262,7 +298,7 @@ defmodule SquidSonar.Runs.RunDetail do
       |> put_deferred_continuations(deferred_continuations)
 
     %__MODULE__{
-      summary: summary(snapshot, explanation, graph),
+      summary: summary,
       payload: snapshot.input,
       context: snapshot.context,
       last_error: latest_error(snapshot.attempts),
@@ -271,14 +307,187 @@ defmodule SquidSonar.Runs.RunDetail do
       anomalies: List.wrap(snapshot.anomalies),
       graph_inspection: graph_inspection,
       workflow_graph: WorkflowGraph.from_models(snapshot, graph),
+      timeline: timeline,
+      timeline_partial?: Keyword.get(opts, :timeline_partial?, false),
       explanation: explanation,
       recovery_policies: recovery_policies,
       compensation_evidence: compensation_evidence(snapshot, recovery_policies),
       dynamic_work: graph.dynamic_work,
-      dynamic_work_overlays: dynamic_work_overlays(graph.dynamic_work_overlays),
+      dynamic_work_overlays: dynamic_work_overlays,
       deferred_continuations: deferred_continuations,
       live_claims: live_claims
     }
+  end
+
+  defp enrich_timeline(
+         %Timeline{} = timeline,
+         %Summary{} = summary,
+         dynamic_work_overlays,
+         deferred_continuations,
+         live_claims
+       ) do
+    supplemental_events =
+      summary
+      |> deadline_timeline_events()
+      |> Kernel.++(dynamic_work_timeline_events(summary.id, dynamic_work_overlays))
+      |> Kernel.++(deferred_timeline_events(summary.id, deferred_continuations))
+      |> Kernel.++(claim_timeline_events(summary.id, live_claims))
+
+    %Timeline{timeline | events: sort_timeline_events(timeline.events ++ supplemental_events)}
+  end
+
+  defp deadline_timeline_events(%Summary{id: run_id, deadline: deadline})
+       when is_map(deadline) do
+    status = normalize_deadline_timeline_status(map_value(deadline, :status))
+    step = map_value(deadline, :step)
+
+    []
+    |> maybe_add_timeline_event(
+      status in [:due_soon, :overdue, :escalated],
+      :deadline_due_soon,
+      map_value(deadline, :due_soon_at),
+      run_id,
+      "deadline due soon",
+      step,
+      :due_soon
+    )
+    |> maybe_add_timeline_event(
+      status in [:overdue, :escalated],
+      :deadline_overdue,
+      map_value(deadline, :due_at),
+      run_id,
+      "deadline became overdue",
+      step,
+      :overdue
+    )
+    |> maybe_add_timeline_event(
+      status == :escalated,
+      :deadline_escalated,
+      map_value(deadline, :escalated_at),
+      run_id,
+      "deadline escalated",
+      step,
+      :escalated
+    )
+  end
+
+  defp deadline_timeline_events(_summary), do: []
+
+  defp normalize_deadline_timeline_status(status)
+       when status in [:due_soon, :overdue, :escalated],
+       do: status
+
+  defp normalize_deadline_timeline_status("due_soon"), do: :due_soon
+  defp normalize_deadline_timeline_status("overdue"), do: :overdue
+  defp normalize_deadline_timeline_status("escalated"), do: :escalated
+  defp normalize_deadline_timeline_status(_status), do: :on_time
+
+  defp dynamic_work_timeline_events(run_id, overlays) do
+    Enum.flat_map(overlays, fn overlay ->
+      timeline_event(
+        :dynamic_work_recorded,
+        overlay.recorded_at,
+        run_id,
+        "dynamic work recorded",
+        overlay.origin_node_id,
+        overlay.status,
+        %{dynamic_key: overlay.dynamic_key}
+      )
+    end)
+  end
+
+  defp deferred_timeline_events(run_id, continuations) do
+    Enum.flat_map(continuations, fn continuation ->
+      timeline_event(
+        :continuation_deferred,
+        continuation.deferred_at,
+        run_id,
+        "#{continuation.step} continuation deferred",
+        continuation.step,
+        :deferred,
+        %{reason: continuation.reason, visible_at: continuation.next_visible_at}
+      )
+    end)
+  end
+
+  defp claim_timeline_events(run_id, claims) do
+    Enum.flat_map(claims, fn claim ->
+      heartbeat_events =
+        timeline_event(
+          :claim_heartbeat_observed,
+          claim.last_heartbeat_at,
+          run_id,
+          "#{claim.step} claim heartbeat observed",
+          claim.step,
+          claim.status,
+          %{attempt_number: claim.attempt_number}
+        )
+
+      expiry_events =
+        if claim.status in [:expired, :reclaimable] do
+          timeline_event(
+            :claim_expired,
+            claim.lease_until,
+            run_id,
+            "#{claim.step} claim expired",
+            claim.step,
+            claim.status,
+            %{attempt_number: claim.attempt_number}
+          )
+        else
+          []
+        end
+
+      heartbeat_events ++ expiry_events
+    end)
+  end
+
+  defp maybe_add_timeline_event(
+         events,
+         true,
+         type,
+         occurred_at,
+         run_id,
+         summary,
+         step,
+         status
+       ) do
+    events ++ timeline_event(type, occurred_at, run_id, summary, step, status)
+  end
+
+  defp maybe_add_timeline_event(events, _include?, _type, _at, _run_id, _summary, _step, _status),
+    do: events
+
+  defp timeline_event(type, occurred_at, run_id, summary, step, status, details \\ %{})
+
+  defp timeline_event(type, %DateTime{} = occurred_at, run_id, summary, step, status, details) do
+    [
+      %Event{
+        type: type,
+        occurred_at: occurred_at,
+        run_id: run_id,
+        step_id: step,
+        status: status,
+        summary: summary,
+        details: Map.new(Enum.reject(details, fn {_key, value} -> is_nil(value) end))
+      }
+    ]
+  end
+
+  defp timeline_event(_type, _occurred_at, _run_id, _summary, _step, _status, _details), do: []
+
+  defp sort_timeline_events(events) do
+    Enum.sort_by(events, fn event ->
+      {
+        DateTime.to_unix(event.occurred_at, :microsecond),
+        to_string(event.type),
+        event.step_id || "",
+        to_string(event.status || ""),
+        event.summary || "",
+        event.runnable_key || "",
+        :erlang.term_to_binary(event.details)
+      }
+    end)
   end
 
   defp summary(%Snapshot{} = snapshot, %Diagnostic{} = explanation, %GraphInspection{} = graph) do

@@ -9,6 +9,7 @@ defmodule SquidSonarWeb.RunLive do
 
   @run_refresh_interval_ms 1_000
   @control_refresh_interval_ms 250
+  @partial_timeline_refresh_limit 3
   @control_events ~w(cancel resume approve reject replay)
 
   @impl Phoenix.LiveView
@@ -24,15 +25,22 @@ defmodule SquidSonarWeb.RunLive do
      |> assign(:visibility_policy, Map.get(socket.assigns, :visibility_policy, :auditor))
      |> assign(:page_title, "SquidSonar Run")
      |> assign(:theme, :system)
+     |> assign(:active_tab, :overview)
+     |> assign(:partial_timeline_refresh_attempts, 0)
      |> assign(:workflow_panel_view, :visual)}
   end
 
   @impl Phoenix.LiveView
-  def handle_params(%{"id" => run_id}, _uri, socket) do
+  def handle_params(%{"id" => run_id} = params, _uri, socket) do
+    active_tab = normalize_run_tab(Map.get(params, "tab"))
+    new_run? = Map.get(socket.assigns, :run_id) != run_id
+
     {:noreply,
      socket
-     |> assign_run(run_id)
-     |> schedule_run_refresh()}
+     |> assign(:active_tab, active_tab)
+     |> assign(:workflow_panel_view, workflow_panel_view(active_tab))
+     |> maybe_assign_run(run_id, new_run?)
+     |> maybe_schedule_run_refresh(new_run?)}
   end
 
   @impl Phoenix.LiveView
@@ -47,17 +55,28 @@ defmodule SquidSonarWeb.RunLive do
 
   @impl Phoenix.LiveView
   def handle_event("select_workflow_panel", %{"view" => view}, socket) do
-    {:noreply, assign(socket, :workflow_panel_view, normalize_workflow_panel_view(view))}
+    workflow_panel_view = normalize_workflow_panel_view(view)
+
+    {:noreply,
+     socket
+     |> assign(:active_tab, run_tab_for_workflow_view(workflow_panel_view))
+     |> assign(:workflow_panel_view, workflow_panel_view)}
   end
 
   @impl Phoenix.LiveView
   def handle_event("show_visual_workflow_panel", _params, socket) do
-    {:noreply, assign(socket, :workflow_panel_view, :visual)}
+    {:noreply,
+     socket
+     |> assign(:active_tab, :workflow)
+     |> assign(:workflow_panel_view, :visual)}
   end
 
   @impl Phoenix.LiveView
   def handle_event("show_raw_workflow_panel", _params, socket) do
-    {:noreply, assign(socket, :workflow_panel_view, :raw)}
+    {:noreply,
+     socket
+     |> assign(:active_tab, :raw_data)
+     |> assign(:workflow_panel_view, :raw)}
   end
 
   @impl Phoenix.LiveView
@@ -159,7 +178,7 @@ defmodule SquidSonarWeb.RunLive do
          |> put_run_flash(:info, "Run replayed successfully")
          |> assign_run(new_run.run_id)
          |> schedule_control_refresh()
-         |> push_patch(to: run_path(socket, new_run.run_id))}
+         |> push_patch(to: run_path(socket, new_run.run_id, socket.assigns.active_tab))}
 
       {:error, _reason} ->
         {:noreply, put_run_flash(socket, :error, "Failed to replay run.")}
@@ -196,6 +215,7 @@ defmodule SquidSonarWeb.RunLive do
           <.run_detail
             detail={@detail}
             prefix={@prefix}
+            active_tab={@active_tab}
             workflow_panel_view={@workflow_panel_view}
           />
         <% end %>
@@ -219,17 +239,40 @@ defmodule SquidSonarWeb.RunLive do
            controls_allowed?: controls_allowed?(socket)
          ) do
       {:ok, detail} ->
+        partial_timeline_refresh_attempts =
+          partial_timeline_refresh_attempts(socket, run_id, detail)
+
         socket
         |> assign(:run_id, run_id)
         |> assign(:detail, detail)
+        |> assign(:partial_timeline_refresh_attempts, partial_timeline_refresh_attempts)
         |> assign(:load_error, nil)
 
       {:error, reason} ->
-        socket
-        |> assign(:run_id, run_id)
-        |> assign(:detail, nil)
-        |> assign(:load_error, reason)
+        retain_or_assign_run_error(socket, run_id, reason)
     end
+  end
+
+  defp retain_or_assign_run_error(
+         %{assigns: %{detail: %{summary: %{id: run_id}} = detail}} = socket,
+         run_id,
+         _reason
+       ) do
+    attempts =
+      if detail.timeline_partial? do
+        socket.assigns.partial_timeline_refresh_attempts + 1
+      else
+        socket.assigns.partial_timeline_refresh_attempts
+      end
+
+    assign(socket, :partial_timeline_refresh_attempts, attempts)
+  end
+
+  defp retain_or_assign_run_error(socket, run_id, reason) do
+    socket
+    |> assign(:run_id, run_id)
+    |> assign(:detail, nil)
+    |> assign(:load_error, reason)
   end
 
   defp schedule_control_refresh(socket) do
@@ -248,11 +291,32 @@ defmodule SquidSonarWeb.RunLive do
     socket
   end
 
-  defp refreshable_run?(%{assigns: %{detail: %{summary: %{terminal?: terminal?}}}}) do
-    not terminal?
+  defp maybe_schedule_run_refresh(socket, true), do: schedule_run_refresh(socket)
+  defp maybe_schedule_run_refresh(socket, false), do: socket
+
+  defp maybe_assign_run(socket, run_id, true), do: assign_run(socket, run_id)
+  defp maybe_assign_run(socket, _run_id, false), do: socket
+
+  defp refreshable_run?(%{
+         assigns: %{
+           detail: %{summary: %{terminal?: terminal?}, timeline_partial?: timeline_partial?},
+           partial_timeline_refresh_attempts: attempts
+         }
+       }) do
+    not terminal? or (timeline_partial? and attempts < @partial_timeline_refresh_limit)
   end
 
   defp refreshable_run?(_socket), do: false
+
+  defp partial_timeline_refresh_attempts(socket, run_id, %{timeline_partial?: true}) do
+    if Map.get(socket.assigns, :run_id) == run_id do
+      socket.assigns.partial_timeline_refresh_attempts + 1
+    else
+      1
+    end
+  end
+
+  defp partial_timeline_refresh_attempts(_socket, _run_id, _detail), do: 0
 
   defp put_run_flash(socket, kind, message) do
     if Map.has_key?(socket.assigns, :flash) do
@@ -288,5 +352,29 @@ defmodule SquidSonarWeb.RunLive do
   defp normalize_workflow_panel_view("raw"), do: :raw
   defp normalize_workflow_panel_view(_view), do: :visual
 
+  defp normalize_run_tab("timeline"), do: :timeline
+  defp normalize_run_tab("workflow"), do: :workflow
+  defp normalize_run_tab("attempts"), do: :attempts
+  defp normalize_run_tab("recovery"), do: :recovery
+  defp normalize_run_tab("raw-data"), do: :raw_data
+  defp normalize_run_tab("raw_data"), do: :raw_data
+  defp normalize_run_tab(_tab), do: :overview
+
+  defp workflow_panel_view(:raw_data), do: :raw
+  defp workflow_panel_view(_tab), do: :visual
+
+  defp run_tab_for_workflow_view(:raw), do: :raw_data
+  defp run_tab_for_workflow_view(:visual), do: :workflow
+
   defp run_path(socket, run_id), do: "#{socket.assigns.prefix}/runs/#{run_id}"
+
+  defp run_path(socket, run_id, tab) do
+    case tab do
+      :overview -> run_path(socket, run_id)
+      _tab -> run_path(socket, run_id) <> "?tab=#{run_tab_param(tab)}"
+    end
+  end
+
+  defp run_tab_param(:raw_data), do: "raw-data"
+  defp run_tab_param(tab), do: Atom.to_string(tab)
 end
