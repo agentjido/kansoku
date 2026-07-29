@@ -60,6 +60,29 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  hex-package:
+    name: Hex Package
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Setup Elixir
+        uses: ./.github/actions/setup-elixir
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Verify package and documentation
+        run: |
+          mix hex.build --output /tmp/squid-sonar-hex-package.tar
+          mix docs
+
   unused-deps:
     name: Check Unused Dependencies
     runs-on: ubuntu-latest
