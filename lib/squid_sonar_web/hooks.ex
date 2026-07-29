@@ -3,10 +3,12 @@ defmodule SquidSonarWeb.Hooks do
 
   import Phoenix.Component, only: [assign: 3]
 
+  @typep session :: %{required(String.t()) => term()}
+
   @doc """
   Copies SquidSonar session values into LiveView assigns.
   """
-  @spec on_mount(:default, map(), map(), Phoenix.LiveView.Socket.t()) ::
+  @spec on_mount(:default, map(), session(), Phoenix.LiveView.Socket.t()) ::
           {:cont, Phoenix.LiveView.Socket.t()}
   def on_mount(:default, _params, session, socket) do
     socket =
