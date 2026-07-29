@@ -131,10 +131,16 @@ jobs:
 
       - name: Verify release
         env:
+          HEX_API_KEY: ${{ secrets.HEX_SECRET_KEY }}
           RELEASE_VERSION: ${{ inputs.version }}
           TAG_EXISTS: ${{ steps.release_state.outputs.tag_exists }}
         run: |
           set -euo pipefail
+
+          if [ -z "${HEX_API_KEY:-}" ]; then
+            echo "::error::HEX_SECRET_KEY is not configured"
+            exit 1
+          fi
 
           mix deps.get
 
@@ -156,6 +162,7 @@ jobs:
             popd
           fi
 
+          mix hex.publish --dry-run --yes
           mix hex.build --unpack --output /tmp/squid-sonar-hex-package
 
       - name: Commit release metadata
