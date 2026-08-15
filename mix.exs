@@ -90,8 +90,8 @@ defmodule Kansoku.MixProject do
 
       _source ->
         {:jizoku,
-         git: "https://github.com/dark-trench/" <> "squid" <> "ie.git",
-         ref: "c5504c8c9bb8bf4161d4dc710683a2ac5cdc5c3e"}
+         git: "https://github.com/dark-trench/jizoku.git",
+         ref: "508be62fea98afa12876fd18edb5bbf6d8e9746d"}
     end
   end
 
