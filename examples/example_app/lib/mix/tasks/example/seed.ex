@@ -1,11 +1,11 @@
 defmodule Mix.Tasks.Example.Seed do
   @moduledoc """
-  Seeds monitorable Squidie runs for the example app.
+  Seeds monitorable Jizoku runs for the example app.
   """
 
   use Mix.Task
 
-  @shortdoc "Seeds example Squidie workflow runs"
+  @shortdoc "Seeds example Jizoku workflow runs"
   @drain_timeout_ms 15_000
   @drain_idle_sleep_ms 50
 
@@ -27,13 +27,13 @@ defmodule Mix.Tasks.Example.Seed do
 
     runs =
       Enum.map(run_ids, fn run_id ->
-        {:ok, run} = Squidie.inspect_run(run_id)
+        {:ok, run} = Jizoku.inspect_run(run_id)
         run
       end)
 
     Mix.shell().info("""
 
-    Seeded Squidie example runs.
+    Seeded Jizoku example runs.
 
     Current run statuses:
     #{format_runs(runs)}
@@ -47,7 +47,7 @@ defmodule Mix.Tasks.Example.Seed do
     Deferred continuation demo:
     #{format_deferred_demo(deferred_demo)}
 
-    Open /sonar in the example app to inspect them.
+    Open /kansoku in the example app to inspect them.
     """)
   end
 
@@ -55,25 +55,25 @@ defmodule Mix.Tasks.Example.Seed do
     unique = System.system_time(:millisecond)
 
     [
-      {SquidSonarExample.Workflows.CompletedCheckout, :completed_checkout,
+      {KansokuExample.Workflows.CompletedCheckout, :completed_checkout,
        %{order_id: "order-complete-#{unique}", customer_id: "cust_demo"}},
-      {SquidSonarExample.Workflows.FailingCheckout, :failing_checkout,
+      {KansokuExample.Workflows.FailingCheckout, :failing_checkout,
        %{order_id: "order-failed-#{unique}", customer_id: "cust_demo"}},
-      {SquidSonarExample.Workflows.SagaCheckout, :saga_checkout,
+      {KansokuExample.Workflows.SagaCheckout, :saga_checkout,
        %{order_id: "order-saga-#{unique}", customer_id: "cust_demo"}},
-      {SquidSonarExample.Workflows.RetryingCheckout, :retrying_checkout,
+      {KansokuExample.Workflows.RetryingCheckout, :retrying_checkout,
        %{order_id: "order-retrying-#{unique}", customer_id: "cust_demo"}},
-      {SquidSonarExample.Workflows.DeferredCheckout, :deferred_checkout,
+      {KansokuExample.Workflows.DeferredCheckout, :deferred_checkout,
        %{order_id: "order-deferred-#{unique}", customer_id: "cust_demo"}},
-      {SquidSonarExample.Workflows.PausedCheckout, :paused_checkout,
+      {KansokuExample.Workflows.PausedCheckout, :paused_checkout,
        %{order_id: "order-paused-#{unique}", customer_id: "cust_demo"}},
-      {SquidSonarExample.Workflows.ManualReviewCheckout, :manual_review_checkout,
+      {KansokuExample.Workflows.ManualReviewCheckout, :manual_review_checkout,
        %{order_id: "order-review-#{unique}", customer_id: "cust_demo"}}
     ]
   end
 
   defp start_scenario({workflow, trigger, payload}) do
-    case Squidie.start(workflow, payload, trigger: trigger) do
+    case Jizoku.start(workflow, payload, trigger: trigger) do
       {:ok, run} ->
         Mix.shell().info("* started #{inspect(workflow)} #{run.run_id}")
         [%{run_id: run.run_id, workflow: workflow, trigger: trigger}]
@@ -87,11 +87,11 @@ defmodule Mix.Tasks.Example.Seed do
   defp record_dynamic_work_overlay!(started_runs) do
     case Enum.find(started_runs, &(&1.trigger == :paused_checkout)) do
       %{run_id: run_id} ->
-        with {:ok, run} <- Squidie.inspect_run(run_id),
+        with {:ok, run} <- Jizoku.inspect_run(run_id),
              {:ok, origin} <- dynamic_origin(run, "load_order"),
              dynamic_work = dynamic_work_overlay(origin),
-             {:ok, _updated_run} <- Squidie.record_dynamic_work(run_id, dynamic_work),
-             {:ok, graph} <- Squidie.inspect_run_graph(run_id),
+             {:ok, _updated_run} <- Jizoku.record_dynamic_work(run_id, dynamic_work),
+             {:ok, graph} <- Jizoku.inspect_run_graph(run_id),
              overlay when is_map(overlay) <- dynamic_work_overlay_for(graph, "fraud_review") do
           %{run_id: run_id, overlay: overlay}
         else
@@ -110,7 +110,7 @@ defmodule Mix.Tasks.Example.Seed do
   defp compensation_evidence_demo!(started_runs) do
     case Enum.find(started_runs, &(&1.trigger == :saga_checkout)) do
       %{run_id: run_id} ->
-        with {:ok, graph} <- Squidie.inspect_run_graph(run_id),
+        with {:ok, graph} <- Jizoku.inspect_run_graph(run_id),
              [_node | _rest] = nodes <- compensation_nodes(graph) do
           %{run_id: run_id, nodes: nodes}
         else
@@ -129,10 +129,10 @@ defmodule Mix.Tasks.Example.Seed do
   defp deferred_continuation_demo!(started_runs) do
     case Enum.find(started_runs, &(&1.trigger == :deferred_checkout)) do
       %{run_id: run_id} ->
-        with {:ok, run} <- Squidie.inspect_run(run_id),
+        with {:ok, run} <- Jizoku.inspect_run(run_id),
              %{reason: :deferred_continuation} <- run,
              [attempt | _rest] <- deferred_attempts(run),
-             {:ok, graph} <- Squidie.inspect_run_graph(run_id),
+             {:ok, graph} <- Jizoku.inspect_run_graph(run_id),
              [_node | _rest] = nodes <- deferred_nodes(graph) do
           %{run_id: run_id, attempt: attempt, nodes: nodes}
         else
@@ -202,7 +202,7 @@ defmodule Mix.Tasks.Example.Seed do
         }
       ],
       metadata: %{
-        note: "seeded overlay for the Squid Sonar dynamic work panel"
+        note: "seeded overlay for the Kansoku dynamic work panel"
       }
     }
   end
@@ -214,10 +214,10 @@ defmodule Mix.Tasks.Example.Seed do
 
   defp reset_example_state! do
     {:ok, _result} =
-      SquidSonarExample.Repo.query("""
-      TRUNCATE squidie_journal_entries,
-               squidie_journal_checkpoints,
-               squidie_journal_threads
+      KansokuExample.Repo.query("""
+      TRUNCATE jizoku_journal_entries,
+               jizoku_journal_checkpoints,
+               jizoku_journal_threads
       RESTART IDENTITY CASCADE
       """)
   end
@@ -238,7 +238,7 @@ defmodule Mix.Tasks.Example.Seed do
         raise "example seed runtime drain exhausted:\n#{format_runs(unsettled_runs)}"
 
       true ->
-        case Squidie.execute_next(owner_id: "squid-sonar-example-seed") do
+        case Jizoku.execute_next(owner_id: "kansoku-example-seed") do
           {:ok, :none} ->
             Process.sleep(@drain_idle_sleep_ms)
             drain_runtime(run_ids, deadline_ms)
@@ -254,7 +254,7 @@ defmodule Mix.Tasks.Example.Seed do
 
   defp inspect_runs(run_ids) do
     Enum.map(run_ids, fn run_id ->
-      {:ok, run} = Squidie.inspect_run(run_id)
+      {:ok, run} = Jizoku.inspect_run(run_id)
       run
     end)
   end

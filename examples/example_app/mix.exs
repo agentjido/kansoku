@@ -1,9 +1,9 @@
-defmodule SquidSonarExample.MixProject do
+defmodule KansokuExample.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :squid_sonar_example,
+      app: :kansoku_example,
       version: "0.1.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -16,7 +16,7 @@ defmodule SquidSonarExample.MixProject do
 
   def application do
     [
-      mod: {SquidSonarExample.Application, []},
+      mod: {KansokuExample.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -39,13 +39,15 @@ defmodule SquidSonarExample.MixProject do
       {:bandit, "~> 1.7"},
       {:ecto_sql, "~> 3.13"},
       {:postgrex, "~> 0.20"},
-      squidie_dep(),
-      {:squid_sonar, path: "../.."}
+      jizoku_dep(),
+      {:kansoku, path: "../.."}
     ]
   end
 
-  defp squidie_dep do
-    {:squidie, "~> 0.3.4"}
+  defp jizoku_dep do
+    {:jizoku,
+     git: "https://github.com/dark-trench/" <> "squid" <> "ie.git",
+     ref: "c5504c8c9bb8bf4161d4dc710683a2ac5cdc5c3e"}
   end
 
   defp aliases do

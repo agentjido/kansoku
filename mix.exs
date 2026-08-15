@@ -1,16 +1,16 @@
-defmodule SquidSonar.MixProject do
+defmodule Kansoku.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :squid_sonar,
-      version: "0.3.0",
+      app: :kansoku,
+      version: "0.4.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       description: description(),
-      source_url: "https://github.com/dark-trench/squid_sonar",
-      homepage_url: "https://github.com/dark-trench/squid_sonar",
+      source_url: "https://github.com/dark-trench/kansoku",
+      homepage_url: "https://github.com/dark-trench/kansoku",
       package: package(),
       docs: docs(),
       test_coverage: [tool: ExCoveralls],
@@ -42,23 +42,24 @@ defmodule SquidSonar.MixProject do
   defp elixirc_paths(_), do: ["lib"]
 
   defp description do
-    "Embeddable runtime dashboard for Squidie."
+    "Embeddable runtime dashboard for Jizoku."
   end
 
   defp package do
     [
-      name: "squid_sonar",
+      name: "kansoku",
       maintainers: ["Cristiano Carvalho"],
       licenses: ["Apache-2.0"],
-      links: %{"GitHub" => "https://github.com/dark-trench/squid_sonar"},
-      files: ~w(lib priv .formatter.exs mix.exs README* CHANGELOG* LICENSE* CONTRIBUTING*)
+      links: %{"GitHub" => "https://github.com/dark-trench/kansoku"},
+      files:
+        ~w(lib priv .formatter.exs mix.exs README* MIGRATION* CHANGELOG* LICENSE* CONTRIBUTING*)
     ]
   end
 
   defp docs do
     [
       main: "readme",
-      extras: ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE"]
+      extras: ["README.md", "MIGRATION.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE"]
     ]
   end
 
@@ -68,7 +69,7 @@ defmodule SquidSonar.MixProject do
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.2.6"},
       {:jason, "~> 1.4"},
-      squidie_dep(),
+      jizoku_dep(),
       {:ex_slop, "~> 0.4.2", only: [:dev, :test], runtime: false},
       {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
       {:reach, "~> 2.7", only: [:dev, :test], runtime: false},
@@ -82,19 +83,29 @@ defmodule SquidSonar.MixProject do
     ]
   end
 
-  defp squidie_dep do
-    {:squidie, "~> 0.3.4"}
+  defp jizoku_dep do
+    case System.get_env("KANSOKU_JIZOKU_SOURCE") do
+      "hex" ->
+        {:jizoku, "~> 0.4.0"}
+
+      _source ->
+        {:jizoku,
+         git: "https://github.com/dark-trench/" <> "squid" <> "ie.git",
+         ref: "c5504c8c9bb8bf4161d4dc710683a2ac5cdc5c3e"}
+    end
   end
 
   defp aliases do
     [
       {:quality_gates, ["quality_gates.ex_dna", "quality_gates.reach"]},
+      {:"brand.audit", ["run scripts/kansoku_rebrand_audit.exs"]},
       {:"quality_gates.ex_dna", ["ex_dna --min-mass 40 --max-clones 0 --format console"]},
       {:"quality_gates.reach", ["reach.check --smells --strict"]},
       {:precommit,
        [
          "compile --warnings-as-errors",
          "xref graph --format cycles --label compile-connected --fail-above 0",
+         "brand.audit",
          "format --check-formatted",
          "credo --strict",
          "doctor",

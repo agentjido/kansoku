@@ -1,11 +1,11 @@
-defmodule SquidSonar.ReadModelFixtures do
+defmodule Kansoku.ReadModelFixtures do
   @moduledoc false
 
-  alias Squidie.ReadModel.Explanation.Diagnostic
-  alias Squidie.ReadModel.Inspection.Snapshot
-  alias Squidie.Runs.GraphInspection
-  alias Squidie.Runs.GraphInspection.Edge
-  alias Squidie.Runs.GraphInspection.Node
+  alias Jizoku.ReadModel.Explanation.Diagnostic
+  alias Jizoku.ReadModel.Inspection.Snapshot
+  alias Jizoku.Runs.GraphInspection
+  alias Jizoku.Runs.GraphInspection.Edge
+  alias Jizoku.Runs.GraphInspection.Node
 
   @doc """
   Builds a Squid Mesh inspection snapshot for tests.

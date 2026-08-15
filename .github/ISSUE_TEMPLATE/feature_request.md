@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a new feature for SquidSonar
+about: Suggest a new feature for Kansoku
 labels: enhancement
 ---
 

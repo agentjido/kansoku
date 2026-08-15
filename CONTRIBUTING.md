@@ -1,6 +1,6 @@
 # Contributing
 
-SquidSonar is an embeddable Phoenix UI for inspecting Squidie workflow runs.
+Kansoku is an embeddable Phoenix UI for inspecting Jizoku workflow runs.
 Keep changes small, focused, and easy to review.
 
 ## Development
@@ -44,7 +44,7 @@ the domain reason it should remain.
 
 Every user-facing feature should include matching example-app coverage when the
 behavior can be demonstrated in a running Phoenix app. The example app should
-make new dashboard behavior visible with real Squidie workflow data.
+make new dashboard behavior visible with real Jizoku workflow data.
 
 ## Pull Requests
 

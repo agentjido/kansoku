@@ -1,6 +1,6 @@
 ---
 name: Documentation
-about: Suggest an improvement to SquidSonar documentation
+about: Suggest an improvement to Kansoku documentation
 labels: documentation
 ---
 
