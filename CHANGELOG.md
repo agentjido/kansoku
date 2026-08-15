@@ -4,10 +4,28 @@ All notable changes to Kansoku will be documented in this file.
 
 ## Unreleased
 
+## 0.4.0 - 2026-08-15
+
+### Added
+
+- Added a Jizoku-backed example application covering completed, failed,
+  retrying, deferred, compensated, paused, and manual-review workflows built
+  with Jizoku DSL workflows and raw Jido actions.
+- Added operational views for Jizoku dynamic work, continuation, compensation,
+  retry, and manual-control evidence.
+
+### Changed
+
 - Renamed the package, OTP application, module namespace, router macro, assets,
   UI hooks, example application, and documentation from SquidSonar to Kansoku.
-- Replaced the Squidie client boundary with Jizoku. This is an explicit
-  breaking cutover with no compatibility namespace or configuration fallback.
+- Replaced the Squidie client boundary with Jizoku and updated repository,
+  package, security, and release metadata for the new identity.
+
+### Breaking
+
+- Removed the SquidSonar namespace, application configuration, router macro,
+  asset identifiers, and compatibility aliases. Hosts must mount Kansoku and
+  configure the Jizoku client explicitly.
 
 ## 0.3.0 - 2026-07-13
 
