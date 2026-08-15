@@ -2,6 +2,8 @@
 
 All notable changes to Kansoku will be documented in this file.
 
+## Unreleased
+
 ## 0.4.0 - 2026-08-15
 
 ### Added
