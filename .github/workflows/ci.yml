@@ -80,7 +80,7 @@ jobs:
 
       - name: Verify package and documentation
         run: |
-          mix hex.build --output /tmp/kansoku-hex-package.tar
+          KANSOKU_JIZOKU_SOURCE=hex mix hex.build --output /tmp/kansoku-hex-package.tar
           mix docs
 
   unused-deps:
