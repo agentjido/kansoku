@@ -80,7 +80,7 @@ jobs:
 
       - name: Verify package and documentation
         run: |
-          mix hex.build --output /tmp/squid-sonar-hex-package.tar
+          mix hex.build --output /tmp/kansoku-hex-package.tar
           mix docs
 
   unused-deps:
@@ -231,7 +231,7 @@ jobs:
         image: postgres:17
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: squid_sonar_example_test
+          POSTGRES_DB: kansoku_example_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s

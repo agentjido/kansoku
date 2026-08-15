@@ -1,8 +1,13 @@
 # Changelog
 
-All notable changes to SquidSonar will be documented in this file.
+All notable changes to Kansoku will be documented in this file.
 
 ## Unreleased
+
+- Renamed the package, OTP application, module namespace, router macro, assets,
+  UI hooks, example application, and documentation from SquidSonar to Kansoku.
+- Replaced the Squidie client boundary with Jizoku. This is an explicit
+  breaking cutover with no compatibility namespace or configuration fallback.
 
 ## 0.3.0 - 2026-07-13
 

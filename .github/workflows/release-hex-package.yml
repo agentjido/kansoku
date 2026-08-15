@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Package version without the leading v, for example 0.2.1"
+        description: "Package version without the leading v, for example 0.4.0"
         required: true
         type: string
 
@@ -17,6 +17,7 @@ concurrency:
 
 env:
   ELIXIR_VERSION: "1.19.5"
+  KANSOKU_JIZOKU_SOURCE: "hex"
   OTP_VERSION: "28.4.1"
 
 jobs:
@@ -41,6 +42,15 @@ jobs:
           --health-retries 5
 
     steps:
+      - name: Require explicit Kansoku release activation
+        env:
+          KANSOKU_RELEASES_ENABLED: ${{ vars.KANSOKU_RELEASES_ENABLED }}
+        run: |
+          if [ "$KANSOKU_RELEASES_ENABLED" != "true" ]; then
+            echo "::error::Kansoku Hex releases are disabled until the coordinated cutover"
+            exit 1
+          fi
+
       - name: Checkout main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -86,7 +96,7 @@ jobs:
 
           hex_status="$(curl --silent --show-error --output /tmp/hex-release.json \
             --write-out '%{http_code}' \
-            "https://hex.pm/api/packages/squid_sonar/releases/${RELEASE_VERSION}")"
+            "https://hex.pm/api/packages/kansoku/releases/${RELEASE_VERSION}")"
 
           case "$hex_status" in
             200) hex_exists=true ;;
@@ -114,8 +124,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          elixir scripts/squid_sonar_release_prep.exs "$RELEASE_VERSION" \
-            --notes-file /tmp/squid-sonar-release-notes.md
+          elixir scripts/kansoku_release_prep.exs "$RELEASE_VERSION" \
+            --notes-file /tmp/kansoku-release-notes.md
           mix format
 
       - name: Recover release notes from existing tag
@@ -125,9 +135,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          elixir scripts/squid_sonar_release_prep.exs "$RELEASE_VERSION" \
+          elixir scripts/kansoku_release_prep.exs "$RELEASE_VERSION" \
             --notes-only \
-            --notes-file /tmp/squid-sonar-release-notes.md
+            --notes-file /tmp/kansoku-release-notes.md
 
       - name: Verify release
         env:
@@ -163,7 +173,7 @@ jobs:
           fi
 
           mix hex.publish --dry-run --yes
-          mix hex.build --unpack --output /tmp/squid-sonar-hex-package
+          mix hex.build --unpack --output /tmp/kansoku-hex-package
 
       - name: Commit release metadata
         if: ${{ steps.release_state.outputs.tag_exists != 'true' }}
@@ -183,7 +193,7 @@ jobs:
 
           git commit \
             -m "chore: release ${RELEASE_VERSION}" \
-            -m "Update SquidSonar package metadata and changelog for ${RELEASE_VERSION}."
+            -m "Update Kansoku package metadata and changelog for ${RELEASE_VERSION}."
 
       - name: Tag and push release
         if: ${{ steps.release_state.outputs.tag_exists != 'true' }}
@@ -205,7 +215,7 @@ jobs:
 
           gh release create "v${RELEASE_VERSION}" \
             --title "v${RELEASE_VERSION}" \
-            --notes-file /tmp/squid-sonar-release-notes.md
+            --notes-file /tmp/kansoku-release-notes.md
 
       - name: Publish package
         if: ${{ steps.release_state.outputs.hex_exists != 'true' }}

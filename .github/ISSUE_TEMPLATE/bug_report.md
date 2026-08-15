@@ -1,13 +1,13 @@
 ---
 name: Bug Report
-about: Report a bug in SquidSonar
+about: Report a bug in Kansoku
 labels: bug
 ---
 
 ## Environment
 
-- SquidSonar version or commit:
-- Squidie version or commit:
+- Kansoku version or commit:
+- Jizoku version or commit:
 - Elixir and Erlang/OTP versions:
 - Phoenix version:
 - Operating system:

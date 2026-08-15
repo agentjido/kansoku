@@ -1,0 +1,936 @@
+defmodule KansokuWeb.PageLiveTest do
+  use ExUnit.Case, async: false
+
+  import Phoenix.Component, only: [assign: 3]
+  import Phoenix.LiveViewTest
+  import Kansoku.ReadModelFixtures
+
+  alias Jizoku.ReadModel.Listing.Summary
+  alias Kansoku.Dashboard
+  alias Kansoku.FakeJizokuClient
+  alias KansokuWeb.PageLive
+  alias Phoenix.LiveView.Socket
+
+  defmodule CatalogWorkflow do
+    use Jizoku.Workflow
+
+    workflow do
+      trigger :manual do
+        manual()
+
+        payload do
+          field(:account_id, :string)
+        end
+      end
+
+      step(:load_account, :log, message: "load account")
+      transition(:load_account, on: :ok, to: :complete)
+    end
+  end
+
+  setup do
+    previous_client = Application.get_env(:kansoku, :jizoku_client)
+    Application.put_env(:kansoku, :jizoku_client, FakeJizokuClient)
+
+    on_exit(fn ->
+      if previous_client do
+        Application.put_env(:kansoku, :jizoku_client, previous_client)
+      else
+        Application.delete_env(:kansoku, :jizoku_client)
+      end
+    end)
+  end
+
+  test "renders run status counts and recent workflow runs" do
+    FakeJizokuClient.put_list_runs(
+      {:ok,
+       [
+         summary(:completed, "completed_checkout", "default"),
+         summary(:failed, "failing_checkout", "error-queue"),
+         summary(:retrying, "retrying_checkout", "retry-queue"),
+         summary(:paused, "manual_review_checkout", "approval-queue")
+       ]}
+    )
+
+    html = render_page()
+
+    assert html =~ "Kansoku"
+    assert html =~ "Runtime dashboard"
+    assert html =~ "phx-hook=\"KansokuTheme\""
+    assert html =~ "Workflow runs"
+    assert html =~ "kansoku-runs-panel-heading"
+    assert html =~ "kansoku-runs-panel-filters"
+    assert html =~ "kansoku-section-heading-copy"
+    assert html =~ "kansoku-search-query"
+    assert html =~ "kansoku-search-prefix"
+    assert html =~ "Recent execution activity across the host runtime"
+    assert html =~ "Advanced filters"
+    assert html =~ "kansoku-filter-controls-primary"
+    assert html =~ "kansoku-filter-controls-advanced"
+    assert html =~ ~s(id="reset-run-filters")
+    assert html =~ "kansoku-filter-toggle"
+    assert html =~ ~s(id="kansoku-run-jump-input")
+    assert html =~ ~s(placeholder="Jump to run ID…")
+    assert html =~ ~s(minlength="3")
+    assert html =~ "kansoku-run-jump-submit"
+    assert html =~ "kansoku-runs-table"
+    assert html =~ "Filters"
+    refute html =~ "kansoku-overview"
+    refute html =~ "Status distribution"
+    assert html =~ "Search"
+    assert html =~ "Page size"
+    assert html =~ "Refresh runs"
+    assert html =~ "Failed"
+    assert html =~ "Completed"
+    assert html =~ "Retrying"
+    assert html =~ "Paused"
+    assert html =~ "Running"
+    assert html =~ "Recent runs"
+    assert html =~ "completed_checkout"
+    assert html =~ "failing_checkout"
+    assert html =~ "retry-queue"
+    assert html =~ "approval-queue"
+  end
+
+  test "renders an empty state when no runs are available" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    html = render_page()
+
+    assert html =~ "No runs found"
+  end
+
+  test "renders a boundary error when runs cannot be loaded" do
+    FakeJizokuClient.put_list_runs({:error, {:missing_config, [:repo]}})
+
+    html = render_page()
+
+    assert html =~ "Unable to load runs"
+    refute html =~ "missing_config"
+  end
+
+  test "filters run sections through the LiveView boundary" do
+    FakeJizokuClient.put_list_runs(
+      {:ok,
+       [
+         summary(:completed, "completed_checkout", "default"),
+         summary(:failed, "failing_checkout", "error-queue")
+       ]}
+    )
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, filtered_socket} =
+      PageLive.handle_event("filter", %{"filters" => %{"status" => "failed"}}, socket)
+
+    html =
+      filtered_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "failing_checkout"
+    refute html =~ ~s(href="/runs/completed_checkout-run")
+  end
+
+  test "loads shareable filters from URL params and renders selected controls" do
+    FakeJizokuClient.put_list_runs(
+      {:ok,
+       [
+         summary(:failed, "billing_checkout", "billing", indexed_at: DateTime.utc_now()),
+         summary(:completed, "shipping_checkout", "shipping")
+       ]}
+    )
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, filtered_socket} =
+      PageLive.handle_params(
+        %{
+          "workflow" => "billing_checkout",
+          "status" => "failed",
+          "queue" => "billing",
+          "window" => "24h",
+          "run_id" => "billing",
+          "page_size" => "25"
+        },
+        "/?workflow=billing_checkout&status=failed",
+        socket
+      )
+
+    html = rendered_to_string(PageLive.render(filtered_socket.assigns))
+
+    assert html =~ ~s(href="/runs/billing_checkout-run")
+    refute html =~ ~s(href="/runs/shipping_checkout-run")
+    assert html =~ ~s(name="filters[workflow]")
+    assert html =~ ~s(value="billing_checkout" selected)
+    assert html =~ ~s(name="filters[queue]")
+    assert html =~ ~s(value="billing" selected)
+    assert html =~ ~s(name="filters[window]")
+    assert html =~ ~r/<details[^>]*kansoku-advanced-filters[^>]*open/
+    assert html =~ ~s(title="Copy name")
+    assert html =~ ~s(title="Copy ID")
+    assert html =~ ~r/>\s*Name\s*</
+    assert html =~ ~r/>\s*ID\s*</
+
+    [{name_position, _length}] = Regex.run(~r/>\s*Name\s*</, html, return: :index)
+    [{id_position, _length}] = Regex.run(~r/>\s*ID\s*</, html, return: :index)
+    assert name_position < id_position
+    assert filtered_socket.assigns.dashboard.page_size == 25
+  end
+
+  test "filter and pagination events patch stable URLs while preserving state" do
+    runs =
+      for index <- 1..30 do
+        summary(:failed, "billing_checkout", "billing",
+          run_id: "billing-checkout-#{index}",
+          indexed_at: DateTime.utc_now()
+        )
+      end
+
+    FakeJizokuClient.put_list_runs({:ok, runs})
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, assign(%Socket{}, :prefix, "/kansoku"))
+
+    {:noreply, filtered_socket} =
+      PageLive.handle_event(
+        "filter",
+        %{
+          "filters" => %{
+            "workflow" => "billing_checkout",
+            "status" => "failed",
+            "queue" => "billing",
+            "window" => "24h"
+          },
+          "page_size" => "25"
+        },
+        socket
+      )
+
+    assert {:live, :patch, %{to: filter_path}} = filtered_socket.redirected
+    assert filter_path =~ "/kansoku/?"
+    assert filter_path =~ "workflow=billing_checkout"
+    assert filter_path =~ "status=failed"
+    assert filter_path =~ "queue=billing"
+    assert filter_path =~ "window=24h"
+    assert filter_path =~ "page_size=25"
+    refute filter_path =~ "page=1"
+
+    patched_socket = %{filtered_socket | redirected: nil}
+
+    {:noreply, paginated_socket} =
+      PageLive.handle_event("paginate", %{"page" => "2"}, patched_socket)
+
+    assert {:live, :patch, %{to: page_path}} = paginated_socket.redirected
+    assert page_path =~ "workflow=billing_checkout"
+    assert page_path =~ "page=2"
+    assert page_path =~ "page_size=25"
+  end
+
+  test "keeps advanced filters open across dashboard refreshes" do
+    FakeJizokuClient.put_list_runs({:ok, [summary(:running, "checkout", "default")]})
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+    {:noreply, open_socket} = PageLive.handle_event("toggle_advanced_filters", %{}, socket)
+
+    assert open_socket.assigns.advanced_filters_open?
+
+    assert rendered_to_string(PageLive.render(open_socket.assigns)) =~
+             ~r/<details[^>]*kansoku-advanced-filters[^>]*open/
+
+    {:noreply, refreshed_socket} = PageLive.handle_event("refresh", %{}, open_socket)
+
+    assert refreshed_socket.assigns.advanced_filters_open?
+
+    assert rendered_to_string(PageLive.render(refreshed_socket.assigns)) =~
+             ~r/<details[^>]*kansoku-advanced-filters[^>]*open/
+  end
+
+  test "resets every filter and patches the canonical URL" do
+    FakeJizokuClient.put_list_runs({:ok, [summary(:failed, "checkout", "priority")]})
+
+    {:ok, socket} =
+      PageLive.mount(
+        %{
+          "status" => "failed",
+          "workflow" => "checkout",
+          "queue" => "priority",
+          "window" => "24h",
+          "query" => "checkout"
+        },
+        %{},
+        assign(%Socket{}, :prefix, "/kansoku")
+      )
+
+    {:noreply, open_socket} = PageLive.handle_event("toggle_advanced_filters", %{}, socket)
+    {:noreply, reset_socket} = PageLive.handle_event("reset_filters", %{}, open_socket)
+
+    assert reset_socket.assigns.dashboard.filters == Dashboard.normalize_params(%{}).filters
+    refute reset_socket.assigns.advanced_filters_open?
+    assert {:live, :patch, %{to: "/kansoku/"}} = reset_socket.redirected
+  end
+
+  test "handle_params patches invalid and out-of-range state to its canonical URL" do
+    FakeJizokuClient.put_list_runs({:ok, [summary(:running, "checkout", "default")]})
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, assign(%Socket{}, :prefix, "/kansoku"))
+
+    {:noreply, canonical_socket} =
+      PageLive.handle_params(
+        %{"status" => "all", "page" => "999", "ignored" => "value"},
+        "/kansoku/?status=all&page=999&ignored=value",
+        socket
+      )
+
+    assert {:live, :patch, %{to: "/kansoku/"}} = canonical_socket.redirected
+    assert canonical_socket.assigns.dashboard.page == 1
+  end
+
+  test "jumps only when a run id prefix resolves uniquely" do
+    FakeJizokuClient.put_list_runs(
+      {:ok,
+       [
+         summary(:running, "checkout", "default", run_id: "run-alpha-001"),
+         summary(:running, "checkout", "default", run_id: "run-alpha-002"),
+         summary(:running, "billing", "default", run_id: "run-beta-001")
+       ]}
+    )
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, assign(%Socket{}, :prefix, "/kansoku"))
+
+    {:noreply, jumped_socket} =
+      PageLive.handle_event("jump_to_run", %{"jump" => %{"run_id" => "run-beta"}}, socket)
+
+    assert {:live, :redirect, %{to: "/kansoku/runs/run-beta-001"}} = jumped_socket.redirected
+
+    {:noreply, ambiguous_socket} =
+      PageLive.handle_event("jump_to_run", %{"jump" => %{"run_id" => "run-alpha"}}, socket)
+
+    assert ambiguous_socket.assigns.jump_error ==
+             "Run ID prefix is ambiguous. Enter more characters."
+
+    error_html = rendered_to_string(PageLive.render(ambiguous_socket.assigns))
+    assert error_html =~ ~s(id="kansoku-run-jump-error")
+    assert error_html =~ ~s(aria-invalid="true")
+    assert error_html =~ ~s(aria-describedby="kansoku-run-jump-error")
+
+    refute ambiguous_socket.redirected
+  end
+
+  test "renders and filters deadline states" do
+    FakeJizokuClient.put_list_runs(
+      {:ok,
+       [
+         summary(:running, "due_soon_checkout", "default",
+           deadline: %{status: :due_soon, step: "capture_payment"}
+         ),
+         summary(:running, "escalated_checkout", "ops",
+           deadline: %{status: :escalated, step: "manual_review"}
+         )
+       ]}
+    )
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+
+    initial_html =
+      socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert initial_html =~ "Deadline"
+    assert initial_html =~ "due soon"
+    assert initial_html =~ "escalated"
+    assert initial_html =~ "capture_payment"
+
+    {:noreply, filtered_socket} =
+      PageLive.handle_event("filter", %{"filters" => %{"deadline" => "escalated"}}, socket)
+
+    filtered_html =
+      filtered_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert filtered_html =~ "escalated_checkout"
+    refute filtered_html =~ ~s(href="/runs/due_soon_checkout-run")
+  end
+
+  test "paginates runs through the dashboard boundary" do
+    runs =
+      for index <- 1..12 do
+        summary(:failed, "run-#{index}", "error-queue",
+          indexed_at: DateTime.add(~U[2026-05-15 10:00:00Z], index, :second)
+        )
+      end
+
+    FakeJizokuClient.put_list_runs({:ok, runs})
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+    {:noreply, paginated_socket} = PageLive.handle_event("paginate", %{"page" => "2"}, socket)
+
+    html =
+      paginated_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "2 / 2"
+    assert html =~ "run-2"
+    refute html =~ ~s(href="/runs/run-12-run")
+  end
+
+  test "sets dashboard theme without reloading run data" do
+    FakeJizokuClient.put_list_runs({:ok, [summary(:failed, "failing_checkout", "error-queue")]})
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+    {:noreply, themed_socket} = PageLive.handle_event("set_theme", %{"theme" => "dark"}, socket)
+
+    html =
+      themed_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "kansoku-theme-dark"
+    assert html =~ "failing_checkout"
+  end
+
+  test "opens and closes the runtime spec drawer from the dashboard" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    {:ok, socket} = mount_with_runtime_spec()
+
+    initial_html =
+      socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert initial_html =~ "Start workflow"
+    refute initial_html =~ "kansoku-runtime-spec-drawer"
+    refute initial_html =~ "/runtime-specs/new"
+
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    open_html =
+      open_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert open_html =~ "kansoku-runtime-spec-drawer"
+    assert open_html =~ "name=\"runtime_spec_start[workflow]\""
+    assert open_html =~ "RuntimeCheckout"
+    assert open_html =~ "Payload JSON"
+    assert open_html =~ "The host application provides the workflow catalog"
+    assert open_html =~ "order_id"
+    assert open_html =~ "order_id_example"
+    refute open_html =~ "Example payload"
+    assert open_html =~ "Host-approved workflow"
+    assert open_html =~ "Close workflow starter"
+
+    {:noreply, closed_socket} =
+      PageLive.handle_event("close_runtime_spec_drawer", %{}, open_socket)
+
+    closed_html =
+      closed_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    refute closed_html =~ "kansoku-runtime-spec-drawer"
+  end
+
+  test "derives the workflow dropdown and example payload from the host runtime spec" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    spec = %{
+      runtime_spec()
+      | workflow: InvoiceReconciliation,
+        payload: [
+          %{name: :invoice_id, type: :string, opts: []},
+          %{name: :retry_count, type: :integer, opts: []}
+        ]
+    }
+
+    {:ok, socket} = mount_with_runtime_spec(spec)
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    html =
+      open_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "InvoiceReconciliation"
+    assert html =~ "invoice_id"
+    assert html =~ "invoice_id_example"
+    assert html =~ "retry_count"
+    assert html =~ "1"
+    refute html =~ "RuntimeCheckout"
+  end
+
+  test "converts host-configured DSL workflow modules into catalog specs" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    {:ok, socket} = mount_with_runtime_specs(account_setup: CatalogWorkflow)
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    html =
+      open_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "CatalogWorkflow"
+    assert html =~ "account_id"
+    assert html =~ "account_id_example"
+  end
+
+  test "selects a host-configured workflow catalog entry and updates payload JSON" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    invoice_spec = invoice_runtime_spec()
+
+    {:ok, socket} =
+      mount_with_runtime_specs(
+        checkout: runtime_spec(),
+        invoice_reconciliation: invoice_spec
+      )
+
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    open_html =
+      open_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert open_html =~ "RuntimeCheckout"
+    assert open_html =~ "InvoiceReconciliation"
+    assert open_html =~ "order_id_example"
+
+    {:noreply, selected_socket} =
+      PageLive.handle_event(
+        "select_runtime_spec",
+        %{"runtime_spec_start" => %{"workflow" => "invoice_reconciliation"}},
+        open_socket
+      )
+
+    selected_html =
+      selected_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert selected_html =~ "invoice_id_example"
+    assert selected_html =~ "retry_count"
+    refute selected_html =~ "order_id_example"
+  end
+
+  test "preserves edited payload JSON when the selected workflow does not change" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    {:ok, socket} = mount_with_runtime_specs(checkout: runtime_spec())
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    {:noreply, changed_socket} =
+      PageLive.handle_event(
+        "select_runtime_spec",
+        %{
+          "runtime_spec_start" => %{
+            "workflow" => "checkout",
+            "payload_json" => ~s({"order_id":"typed-order"})
+          }
+        },
+        open_socket
+      )
+
+    html =
+      changed_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "typed-order"
+    refute html =~ "order_id_example"
+  end
+
+  test "starts the selected workflow catalog entry" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    checkout_spec = runtime_spec()
+    invoice_spec = invoice_runtime_spec()
+    registry = %{"load_order" => __MODULE__}
+    payload = %{"invoice_id" => "inv-1", "retry_count" => 2}
+    normalized_payload = %{invoice_id: "inv-1", retry_count: 2}
+
+    FakeJizokuClient.put_start_spec(fn started_spec, started_payload, opts ->
+      send(self(), {:start_spec, started_spec, started_payload, opts})
+
+      {:ok,
+       snapshot(:running,
+         run_id: "invoice-runtime-spec-run",
+         workflow: "InvoiceReconciliation",
+         reason: :attempt_visible
+       )}
+    end)
+
+    {:ok, socket} =
+      mount_with_runtime_specs(
+        [checkout: checkout_spec, invoice_reconciliation: invoice_spec],
+        registry
+      )
+
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    {:noreply, started_socket} =
+      PageLive.handle_event(
+        "start_runtime_spec",
+        %{
+          "runtime_spec_start" => %{
+            "workflow" => "invoice_reconciliation",
+            "payload_json" => Jason.encode!(payload)
+          }
+        },
+        open_socket
+      )
+
+    assert_received {:start_spec, ^invoice_spec, ^normalized_payload,
+                     [action_registry: ^registry]}
+
+    assert {:live, :redirect, %{to: "/kansoku/runs/invoice-runtime-spec-run"}} =
+             started_socket.redirected
+  end
+
+  test "starts DSL workflow catalog entries through the workflow start boundary" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    FakeJizokuClient.put_start(fn workflow, payload, opts ->
+      send(self(), {:start_workflow, workflow, payload, opts})
+
+      {:ok,
+       snapshot(:running,
+         run_id: "catalog-workflow-run",
+         workflow: Atom.to_string(workflow),
+         reason: :attempt_visible
+       )}
+    end)
+
+    FakeJizokuClient.put_start_spec(fn _spec, _payload, _opts ->
+      send(self(), :unexpected_start_spec)
+      {:error, :unexpected_start_spec}
+    end)
+
+    {:ok, socket} = mount_with_runtime_specs(account_setup: CatalogWorkflow)
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    {:noreply, started_socket} =
+      PageLive.handle_event(
+        "start_runtime_spec",
+        %{
+          "runtime_spec_start" => %{
+            "workflow" => "account_setup",
+            "payload_json" => Jason.encode!(%{"account_id" => "acct-1"})
+          }
+        },
+        open_socket
+      )
+
+    assert_received {:start_workflow, CatalogWorkflow, %{account_id: "acct-1"}, []}
+    refute_received :unexpected_start_spec
+
+    assert {:live, :redirect, %{to: "/kansoku/runs/catalog-workflow-run"}} =
+             started_socket.redirected
+  end
+
+  test "rejects stale runtime spec workflow keys from the client" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    FakeJizokuClient.put_start_spec(fn _spec, _payload, _opts ->
+      send(self(), :unexpected_start_spec)
+      {:error, :unexpected}
+    end)
+
+    {:ok, socket} = mount_with_runtime_specs(checkout: runtime_spec())
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    {:noreply, error_socket} =
+      PageLive.handle_event(
+        "start_runtime_spec",
+        %{
+          "runtime_spec_start" => %{
+            "workflow" => "not_configured",
+            "payload_json" => Jason.encode!(%{"order_id" => "order-1"})
+          }
+        },
+        open_socket
+      )
+
+    html =
+      error_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Selected workflow is not configured"
+    refute_received :unexpected_start_spec
+  end
+
+  test "starts a runtime spec from the drawer and redirects to the created run detail" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    spec = runtime_spec()
+    registry = %{"load_order" => __MODULE__}
+    payload = %{"order_id" => "order-1"}
+    normalized_payload = %{order_id: "order-1"}
+
+    FakeJizokuClient.put_start_spec(fn started_spec, started_payload, opts ->
+      send(self(), {:start_spec, started_spec, started_payload, opts})
+
+      {:ok,
+       snapshot(:running,
+         run_id: "runtime-spec-run",
+         workflow: "RuntimeCheckout",
+         reason: :attempt_visible
+       )}
+    end)
+
+    {:ok, socket} = mount_with_runtime_spec(spec, registry)
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    {:noreply, started_socket} =
+      PageLive.handle_event(
+        "start_runtime_spec",
+        %{"runtime_spec_start" => %{"payload_json" => Jason.encode!(payload)}},
+        open_socket
+      )
+
+    assert_received {:start_spec, ^spec, ^normalized_payload, [action_registry: ^registry]}
+    assert {:live, :redirect, %{to: "/kansoku/runs/runtime-spec-run"}} = started_socket.redirected
+  end
+
+  test "renders invalid runtime spec payload JSON in the drawer without echoing raw input" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    {:ok, socket} = mount_with_runtime_spec()
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    {:noreply, error_socket} =
+      PageLive.handle_event(
+        "start_runtime_spec",
+        %{"runtime_spec_start" => %{"payload_json" => "{bad"}},
+        open_socket
+      )
+
+    html =
+      error_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Payload JSON is invalid"
+    refute html =~ "{bad"
+  end
+
+  test "renders structured runtime spec validation errors in the drawer" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    FakeJizokuClient.put_start_spec(
+      {:error,
+       {:invalid_workflow_spec,
+        [
+          %{
+            path: [:steps, 0, :action],
+            code: :unknown_action_key,
+            message: "step load_order references unknown action key",
+            details: %{secret: "do-not-render"}
+          }
+        ]}}
+    )
+
+    {:ok, socket} = mount_with_runtime_spec()
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    {:noreply, error_socket} =
+      PageLive.handle_event(
+        "start_runtime_spec",
+        %{"runtime_spec_start" => %{"payload_json" => "{}"}},
+        open_socket
+      )
+
+    html =
+      error_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "step load_order references unknown action key"
+    assert html =~ "steps.0.action"
+    refute html =~ "do-not-render"
+  end
+
+  test "does not render the runtime spec trigger without host configuration" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    html = render_page()
+
+    refute html =~ "Start workflow"
+    refute html =~ "kansoku-runtime-spec-drawer"
+  end
+
+  test "lists host-provided saved workflow specs on the dashboard" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    {:ok, socket} =
+      mount_with_saved_specs(
+        checkout_runtime_spec: %{
+          title: "Checkout runtime spec",
+          status: :approved,
+          editor_json: editor_json()
+        }
+      )
+
+    closed_html =
+      socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert closed_html =~ ~s(id="saved-workflows-toggle")
+    assert closed_html =~ ~s(aria-expanded="false")
+    refute closed_html =~ ~s(id="saved-workflows-panel")
+
+    {:noreply, open_socket} = PageLive.handle_event("toggle_saved_specs", %{}, socket)
+    open_html = rendered_to_string(PageLive.render(open_socket.assigns))
+
+    assert open_html =~ ~s(aria-expanded="true")
+    assert open_html =~ ~s(id="saved-workflows-panel")
+    assert open_html =~ "kansoku-saved-workflows-content"
+    assert open_html =~ "Saved workflow specs"
+    assert open_html =~ "Checkout runtime spec"
+    assert open_html =~ "Approved"
+    assert open_html =~ ~s(href="/kansoku/saved-specs/checkout_runtime_spec")
+  end
+
+  test "does not render saved workflow specs without host configuration" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    html = render_page()
+
+    refute html =~ "Saved workflow specs"
+    refute html =~ "/saved-specs/"
+  end
+
+  test "refreshes the dashboard while preserving active filters" do
+    FakeJizokuClient.put_list_runs(fn filters, _opts ->
+      send(self(), {:list_filters, filters})
+
+      {:ok,
+       [
+         summary(:completed, "completed_checkout", "default"),
+         summary(:failed, "failing_checkout", "error-queue")
+       ]}
+    end)
+
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+
+    {:noreply, filtered_socket} =
+      PageLive.handle_event("filter", %{"filters" => %{"status" => "failed"}}, socket)
+
+    FakeJizokuClient.put_list_runs(fn filters, _opts ->
+      send(self(), {:list_filters, filters})
+      {:ok, [summary(:failed, "new_failure_checkout", "error-queue")]}
+    end)
+
+    {:noreply, refreshed_socket} = PageLive.handle_info(:refresh_dashboard, filtered_socket)
+
+    html =
+      refreshed_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "new_failure_checkout"
+    refute html =~ "completed_checkout"
+    assert refreshed_socket.assigns.dashboard.filters.status == :failed
+  end
+
+  defp render_page do
+    {:ok, socket} = PageLive.mount(%{}, %{}, %Socket{})
+
+    socket.assigns
+    |> PageLive.render()
+    |> rendered_to_string()
+  end
+
+  defp mount_with_runtime_spec(spec \\ runtime_spec(), registry \\ %{"load_order" => __MODULE__}) do
+    socket =
+      %Socket{}
+      |> assign(:prefix, "/kansoku")
+      |> assign(:runtime_spec, spec)
+      |> assign(:action_registry, registry)
+
+    PageLive.mount(%{}, %{}, socket)
+  end
+
+  defp mount_with_runtime_specs(runtime_specs, registry \\ %{"load_order" => __MODULE__}) do
+    socket =
+      %Socket{}
+      |> assign(:prefix, "/kansoku")
+      |> assign(:runtime_specs, runtime_specs)
+      |> assign(:action_registry, registry)
+
+    PageLive.mount(%{}, %{}, socket)
+  end
+
+  defp mount_with_saved_specs(saved_specs, registry \\ nil) do
+    socket =
+      %Socket{}
+      |> assign(:prefix, "/kansoku")
+      |> assign(:saved_specs, saved_specs)
+      |> assign(:action_registry, registry)
+
+    PageLive.mount(%{}, %{}, socket)
+  end
+
+  defp summary(status, workflow_name, queue, attrs \\ []) do
+    %Summary{
+      run_id: Keyword.get(attrs, :run_id, "#{workflow_name}-run"),
+      workflow: workflow_name,
+      queue: queue,
+      status: status,
+      terminal?: Keyword.get(attrs, :terminal?, status in [:completed, :failed, :cancelled]),
+      terminal_status: Keyword.get(attrs, :terminal_status, status),
+      indexed_at: Keyword.get(attrs, :indexed_at, ~U[2026-05-15 10:00:00Z]),
+      thread_revision: Keyword.get(attrs, :thread_revision, 7),
+      anomalies: [],
+      deadline: Keyword.get(attrs, :deadline),
+      definition_version: Keyword.get(attrs, :definition_version, 1)
+    }
+  end
+
+  defp runtime_spec do
+    %{
+      workflow: RuntimeCheckout,
+      triggers: [%{name: :manual, type: :manual, config: %{}, payload: []}],
+      payload: [%{name: :order_id, type: :string, opts: []}],
+      steps: [
+        %{name: :load_order, action: "load_order", module: :log, opts: [message: "load order"]}
+      ],
+      transitions: [%{from: :load_order, on: :ok, to: :complete}],
+      retries: [],
+      entry_steps: [:load_order],
+      initial_step: :load_order,
+      entry_step: :load_order
+    }
+  end
+
+  defp invoice_runtime_spec do
+    %{
+      runtime_spec()
+      | workflow: InvoiceReconciliation,
+        payload: [
+          %{name: :invoice_id, type: :string, opts: []},
+          %{name: :retry_count, type: :integer, opts: []}
+        ]
+    }
+  end
+
+  defp editor_json do
+    %{
+      "workflow" => "RuntimeCheckout",
+      "triggers" => [%{"name" => "manual", "type" => "manual", "config" => %{}, "payload" => []}],
+      "payload" => [%{"name" => "order_id", "type" => "string", "opts" => []}],
+      "steps" => [%{"name" => "load_order", "action" => "load_order", "opts" => %{}}],
+      "transitions" => [%{"from" => "load_order", "on" => "ok", "to" => "complete"}],
+      "retries" => [],
+      "entry_steps" => ["load_order"],
+      "initial_step" => "load_order",
+      "entry_step" => "load_order"
+    }
+  end
+end

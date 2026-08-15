@@ -1,20 +1,20 @@
 import Config
 
-config :squid_sonar_example,
-  ecto_repos: [SquidSonarExample.Repo]
+config :kansoku_example,
+  ecto_repos: [KansokuExample.Repo]
 
-config :squid_sonar_example, SquidSonarExampleWeb.Endpoint,
+config :kansoku_example, KansokuExampleWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: SquidSonarExampleWeb.ErrorHTML],
+    formats: [html: KansokuExampleWeb.ErrorHTML],
     layout: false
   ],
-  pubsub_server: SquidSonarExample.PubSub,
-  live_view: [signing_salt: "squid-sonar-example"]
+  pubsub_server: KansokuExample.PubSub,
+  live_view: [signing_salt: "kansoku-example"]
 
-config :squidie,
-  repo: SquidSonarExample.Repo,
-  executor: SquidSonarExample.SquidieExecutor
+config :jizoku,
+  repo: KansokuExample.Repo,
+  executor: KansokuExample.JizokuExecutor
 
 import_config "#{config_env()}.exs"
