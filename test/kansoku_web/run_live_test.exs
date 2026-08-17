@@ -1551,6 +1551,9 @@ defmodule KansokuWeb.RunLiveTest do
     refute html =~ "evidence-secret"
     assert html =~ ~s(id="run-summary-json")
     assert html =~ ~s(data-copy-target="run-summary-json")
+    assert html =~ "&quot;thread_revisions&quot;"
+    refute html =~ "&quot;terminal&quot;"
+    refute html =~ "&quot;terminal_status&quot;"
     assert html =~ ~s(phx-click="approve")
     assert html =~ ~s(phx-click="reject")
     assert html =~ ~s(phx-click="cancel")
