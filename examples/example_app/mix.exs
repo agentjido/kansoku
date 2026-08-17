@@ -47,7 +47,7 @@ defmodule KansokuExample.MixProject do
   defp jizoku_dep do
     {:jizoku,
      git: "https://github.com/tsuranari/jizoku.git",
-     ref: "a4f13e0a47a3848f8a52196610ed15f567417c77"}
+     ref: "2991ae97e67557fc7fee1cc6ce54398a9bd7205d"}
   end
 
   defp aliases do
