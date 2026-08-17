@@ -1553,9 +1553,10 @@ defmodule KansokuWeb.CoreComponents do
       "id" => summary.id,
       "queue" => summary.queue,
       "status" => summary.status,
-      "terminal" => summary.terminal?,
-      "terminal_status" => summary.terminal_status,
-      "thread_revisions" => summary.thread_revisions,
+      "thread_revisions" => %{
+        "dispatch" => summary.thread_revisions.dispatch,
+        "run" => summary.thread_revisions.run
+      },
       "workflow" => format_workflow(summary.workflow)
     }
 

@@ -363,11 +363,12 @@ Open `http://localhost:4000/kansoku` after the server starts.
 Use the [Jizoku Elixir Forum thread](https://elixirforum.com/t/jizoku-workflow-automation-runtime-for-elixir-applications/75162)
 for public discussion and design context around the runtime and dashboard.
 
-Use [GitHub issues](https://github.com/dark-trench/kansoku/issues) for
+Use [GitHub issues](https://github.com/tsuranari/kansoku/issues) for
 dashboard bugs, feature requests, and release-tracked work.
 
 For informal runtime and Jido-adjacent chat, use the
 [Jizoku channel on the Jido Discord](https://discord.com/channels/1323353012235796550/1504122798027571331).
+New members can join through the [Jido Discord invite](https://jido.run/discord).
 
 ## License
 

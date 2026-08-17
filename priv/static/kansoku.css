@@ -2830,7 +2830,8 @@ body.kansoku-document:has(.kansoku-theme-dark) {
     grid-template-columns: 1fr auto;
   }
 
-  .kansoku-panel-title {
+  .kansoku-section-heading-copy,
+  .kansoku-panel-tools {
     grid-column: 1 / -1;
   }
 
