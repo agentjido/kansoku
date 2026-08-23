@@ -27,9 +27,9 @@ jobs:
       quality_elixir_version: "1.19"
       otp_versions: '["27", "28"]'
       elixir_versions: '["1.18", "1.19"]'
-      experimental_compile_otp_versions: '["29"]'
+      experimental_compile_otp_versions: '["28"]'
       experimental_compile_elixir_versions: '["1.20.2"]'
-      experimental_compile_otp_name: "29"
+      experimental_compile_otp_name: "28"
       test_command: mix coveralls
       audit_command: mix deps.audit
       docs_command: mix docs -f html
