@@ -14,7 +14,7 @@ defmodule Kansoku.RebrandContractTest do
     project = Mix.Project.config()
 
     assert project[:package][:name] == "kansoku"
-    assert project[:source_url] == "https://github.com/dark-trench/kansoku"
+    assert project[:source_url] == "https://github.com/agentjido/kansoku"
     assert Enum.any?(project[:deps], &match?({:jizoku, _requirement}, &1))
   end
 

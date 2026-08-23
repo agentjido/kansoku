@@ -2,8 +2,8 @@
 
 <div align="left">
   <p>
-    <a href="https://github.com/dark-trench/kansoku/actions/workflows/ci.yml">
-      <img alt="CI" src="https://github.com/dark-trench/kansoku/actions/workflows/ci.yml/badge.svg" />
+    <a href="https://github.com/agentjido/kansoku/actions/workflows/ci.yml">
+      <img alt="CI" src="https://github.com/agentjido/kansoku/actions/workflows/ci.yml/badge.svg" />
     </a>
     <a href="https://hex.pm/packages/kansoku">
       <img alt="Hex" src="https://img.shields.io/hexpm/v/kansoku" />
@@ -11,7 +11,7 @@
     <a href="https://hexdocs.pm/kansoku">
       <img alt="HexDocs" src="https://img.shields.io/badge/docs-hexdocs-purple" />
     </a>
-    <a href="https://github.com/dark-trench/kansoku/blob/main/LICENSE">
+    <a href="https://github.com/agentjido/kansoku/blob/main/LICENSE">
       <img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" />
     </a>
   </p>
@@ -363,7 +363,7 @@ Open `http://localhost:4000/kansoku` after the server starts.
 Use the [Jizoku Elixir Forum thread](https://elixirforum.com/t/jizoku-workflow-automation-runtime-for-elixir-applications/75162)
 for public discussion and design context around the runtime and dashboard.
 
-Use [GitHub issues](https://github.com/tsuranari/kansoku/issues) for
+Use [GitHub issues](https://github.com/agentjido/kansoku/issues) for
 dashboard bugs, feature requests, and release-tracked work.
 
 For informal runtime and Jido-adjacent chat, use the
