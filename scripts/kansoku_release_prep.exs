@@ -1,5 +1,9 @@
 defmodule Kansoku.ReleasePrepScript do
   @version_files ["README.md"]
+  @mix_version_patterns [
+    ~r/(?<=@version ")\d+\.\d+\.\d+(?:[-+][^"]+)?(?=")/,
+    ~r/(?<=version: ")\d+\.\d+\.\d+(?:[-+][^"]+)?(?=")/
+  ]
 
   def main(args) do
     {opts, args, invalid} =
@@ -58,12 +62,14 @@ defmodule Kansoku.ReleasePrepScript do
   end
 
   defp current_mix_version! do
-    case Regex.run(~r/version: "(?<version>\d+\.\d+\.\d+(?:[-+][^"]+)?)"/, File.read!("mix.exs"),
-           capture: ["version"]
-         ) do
-      [version] -> version
-      _missing -> fail!("Could not find mix.exs version")
-    end
+    body = File.read!("mix.exs")
+
+    Enum.find_value(@mix_version_patterns, fn pattern ->
+      case Regex.run(pattern, body) do
+        [version] -> version
+        nil -> nil
+      end
+    end) || fail!("Could not find mix.exs version")
   end
 
   defp unreleased_notes! do
@@ -99,10 +105,14 @@ defmodule Kansoku.ReleasePrepScript do
 
   defp update_mix_version!(version) do
     update_file!("mix.exs", fn body ->
+      pattern =
+        Enum.find(@mix_version_patterns, &Regex.match?(&1, body)) ||
+          fail!("Could not find mix.exs version")
+
       replace_once!(
         body,
-        ~r/version: "\d+\.\d+\.\d+(?:[-+][^"]+)?"/,
-        ~s(version: "#{version}"),
+        pattern,
+        version,
         "mix.exs version"
       )
     end)

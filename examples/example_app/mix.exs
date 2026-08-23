@@ -5,7 +5,7 @@ defmodule KansokuExample.MixProject do
     [
       app: :kansoku_example,
       version: "0.1.0",
-      elixir: "~> 1.17",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -39,15 +39,9 @@ defmodule KansokuExample.MixProject do
       {:bandit, "~> 1.7"},
       {:ecto_sql, "~> 3.13"},
       {:postgrex, "~> 0.20"},
-      jizoku_dep(),
+      {:jizoku, "~> 0.4.0"},
       {:kansoku, path: "../.."}
     ]
-  end
-
-  defp jizoku_dep do
-    {:jizoku,
-     git: "https://github.com/tsuranari/jizoku.git",
-     ref: "2991ae97e67557fc7fee1cc6ce54398a9bd7205d"}
   end
 
   defp aliases do

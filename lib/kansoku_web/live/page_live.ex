@@ -663,8 +663,9 @@ defmodule KansokuWeb.PageLive do
   defp runtime_spec_catalog_entries(nil, runtime_spec),
     do: [runtime_spec_catalog_entry(nil, runtime_spec)]
 
-  defp runtime_spec_catalog_entries(%{}, runtime_spec),
-    do: runtime_spec_catalog_entries(nil, runtime_spec)
+  defp runtime_spec_catalog_entries(runtime_specs, runtime_spec)
+       when is_map(runtime_specs) and map_size(runtime_specs) == 0,
+       do: runtime_spec_catalog_entries(nil, runtime_spec)
 
   defp runtime_spec_catalog_entries([], runtime_spec),
     do: runtime_spec_catalog_entries(nil, runtime_spec)

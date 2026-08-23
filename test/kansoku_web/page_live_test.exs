@@ -478,6 +478,21 @@ defmodule KansokuWeb.PageLiveTest do
     assert html =~ "account_id_example"
   end
 
+  test "converts map-based workflow catalogs into catalog specs" do
+    FakeJizokuClient.put_list_runs({:ok, []})
+
+    {:ok, socket} = mount_with_runtime_specs(%{account_setup: CatalogWorkflow})
+    {:noreply, open_socket} = PageLive.handle_event("open_runtime_spec_drawer", %{}, socket)
+
+    html =
+      open_socket.assigns
+      |> PageLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "CatalogWorkflow"
+    assert html =~ "account_id_example"
+  end
+
   test "selects a host-configured workflow catalog entry and updates payload JSON" do
     FakeJizokuClient.put_list_runs({:ok, []})
 

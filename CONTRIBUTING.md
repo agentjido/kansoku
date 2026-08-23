@@ -9,10 +9,21 @@ Use the toolchain in `.tool-versions`, then run:
 
 ```bash
 mix deps.get
-mix precommit
+mix quality
+mix test
 ```
 
-`mix precommit` runs compile, format checks, and tests.
+`mix quality` runs the shared Jido package quality checks. `mix precommit` adds
+Kansoku-specific audits, structural checks, and tests.
+
+Install the Conventional Commit hook only from the primary checkout:
+
+```bash
+mix install_hooks
+```
+
+See the [Jido package quality standards](https://jido.run/docs/contributors/package-quality-standards)
+for the ecosystem maintenance baseline.
 
 ## Quality Gates
 
@@ -56,18 +67,12 @@ make new dashboard behavior visible with real Jizoku workflow data.
 
 ## Releases
 
-Package releases are created by the **Release Hex Package** GitHub Actions
-workflow. Before dispatching it:
+The **Release** GitHub Actions workflow uses the shared Jido release process.
+For a safe preparation check, run it on the target branch with `operation` set
+to `auto` and `dry_run` set to `true`. A dry run does not push a commit or tag,
+create a GitHub release, or publish to Hex.
 
-1. Merge the intended release changes into `main` and curate the
-   `CHANGELOG.md` **Unreleased** section.
-2. Configure a protected `hex-publish` GitHub environment with a
-   publish-capable `HEX_SECRET_KEY` secret. Environment approval is recommended.
-3. Run the workflow with a SemVer version without the leading `v`, such as
-   `0.2.1`.
-
-The workflow verifies the requested version, prepares and commits release
-metadata, runs the root and example-app test suites, builds the Hex package,
-creates and pushes an annotated tag, creates the GitHub Release, and publishes
-to Hex.pm. Repository branch protection must allow the workflow's GitHub token
-to push the generated release commit to `main`.
+A real release stays disabled until the repository variable
+`KANSOKU_RELEASES_ENABLED` is `true`. It also needs a publish-capable
+`HEX_API_KEY` secret. Do not enable the variable until the key and release plan
+are ready.
