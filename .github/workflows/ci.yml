@@ -55,16 +55,16 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check repository automation
-        run: |
-          bash .github/tests/discord_notifications_test.sh
-          bash .github/tests/release_prep_test.sh
-
       - name: Setup Elixir
         uses: ./.github/actions/setup-elixir
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Check repository automation
+        run: |
+          bash .github/tests/discord_notifications_test.sh
+          bash .github/tests/release_prep_test.sh
 
       - name: Run package-specific quality gates
         run: |
