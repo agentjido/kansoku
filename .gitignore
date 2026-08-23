@@ -2,9 +2,6 @@
 /_build/
 /examples/example_app/_build/
 
-# Coverage reports.
-/cover/
-
 # Dependency artifacts.
 /deps/
 /examples/example_app/deps/
@@ -21,21 +18,9 @@
 # Crash dumps.
 erl_crash.dump
 
-# Dialyzer PLT files.
-*.plt
-*.plt.hash
-
 # Local environment.
 .env
 .env.*
-
-# Editor and OS files.
-/.elixir_ls/
-/.vscode/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
 
 # Codex
 .codex

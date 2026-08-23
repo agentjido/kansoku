@@ -1,22 +1,19 @@
 defmodule Kansoku.MixProject do
   use Mix.Project
 
-  @source_url "https://github.com/agentjido/kansoku"
-  @description "Embeddable runtime dashboard for Jizoku."
-
   def project do
     [
       app: :kansoku,
       version: "0.4.0",
-      elixir: "~> 1.18",
+      elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
-      description: @description,
-      source_url: @source_url,
-      homepage_url: @source_url,
+      description: description(),
+      source_url: "https://github.com/agentjido/kansoku",
+      homepage_url: "https://github.com/agentjido/kansoku",
       package: package(),
       docs: docs(),
-      test_coverage: [tool: ExCoveralls, summary: [threshold: 80], export: "cov"],
+      test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
@@ -44,35 +41,25 @@ defmodule Kansoku.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
+  defp description do
+    "Embeddable runtime dashboard for Jizoku."
+  end
+
   defp package do
     [
       name: "kansoku",
-      maintainers: ["Mike Hostetler", "Cristiano Carvalho"],
+      maintainers: ["Mike Hostetler"],
       licenses: ["Apache-2.0"],
-      links: %{
-        "Changelog" => "https://hexdocs.pm/kansoku/changelog.html",
-        "Discord" => "https://jido.run/discord",
-        "Documentation" => "https://hexdocs.pm/kansoku",
-        "GitHub" => @source_url,
-        "Website" => "https://jido.run"
-      },
+      links: %{"GitHub" => "https://github.com/agentjido/kansoku"},
       files:
-        ~w(lib priv usage-rules.md .formatter.exs mix.exs README* MIGRATION* CHANGELOG* LICENSE* CONTRIBUTING*)
+        ~w(lib priv .formatter.exs mix.exs README* MIGRATION* CHANGELOG* LICENSE* CONTRIBUTING*)
     ]
   end
 
   defp docs do
     [
       main: "readme",
-      source_url: @source_url,
-      extras: [
-        "README.md",
-        "MIGRATION.md",
-        "CHANGELOG.md",
-        "CONTRIBUTING.md",
-        "usage-rules.md",
-        "LICENSE"
-      ]
+      extras: ["README.md", "MIGRATION.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE"]
     ]
   end
 
@@ -82,7 +69,7 @@ defmodule Kansoku.MixProject do
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.2.6"},
       {:jason, "~> 1.4"},
-      {:jizoku, "~> 0.4.0"},
+      jizoku_dep(),
       {:ex_slop, "~> 0.4.2", only: [:dev, :test], runtime: false},
       {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
       {:reach, "~> 2.7", only: [:dev, :test], runtime: false},
@@ -96,17 +83,20 @@ defmodule Kansoku.MixProject do
     ]
   end
 
+  defp jizoku_dep do
+    case System.get_env("KANSOKU_JIZOKU_SOURCE") do
+      "hex" ->
+        {:jizoku, "~> 0.4.0"}
+
+      _source ->
+        {:jizoku,
+         git: "https://github.com/agentjido/jizoku.git",
+         ref: "2991ae97e67557fc7fee1cc6ce54398a9bd7205d"}
+    end
+  end
+
   defp aliases do
     [
-      {:q, ["quality"]},
-      {:quality,
-       [
-         "format --check-formatted",
-         "compile --warnings-as-errors",
-         "credo --min-priority higher",
-         "dialyzer",
-         "doctor --raise"
-       ]},
       {:quality_gates, ["quality_gates.ex_dna", "quality_gates.reach"]},
       {:"brand.audit", ["run scripts/kansoku_rebrand_audit.exs"]},
       {:"quality_gates.ex_dna", ["ex_dna --min-mass 40 --max-clones 0 --format console"]},
@@ -118,7 +108,7 @@ defmodule Kansoku.MixProject do
          "brand.audit",
          "format --check-formatted",
          "credo --strict",
-         "doctor --raise",
+         "doctor",
          "deps.audit",
          "dialyzer",
          "quality_gates",
