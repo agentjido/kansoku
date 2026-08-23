@@ -83,7 +83,7 @@ jobs:
           KANSOKU_JIZOKU_SOURCE=hex mix deps.get
           KANSOKU_JIZOKU_SOURCE=hex mix hex.build --output /tmp/kansoku-hex-package.tar
           HEX_API_KEY=invalid-dry-run-only KANSOKU_JIZOKU_SOURCE=hex mix hex.publish --dry-run --yes
-          mix docs
+          KANSOKU_JIZOKU_SOURCE=hex mix docs
 
   unused-deps:
     name: Check Unused Dependencies
