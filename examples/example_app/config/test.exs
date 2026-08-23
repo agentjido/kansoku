@@ -1,10 +1,9 @@
 import Config
 
 config :kansoku_example, KansokuExample.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "kansoku_example_test",
+  url:
+    System.get_env("DATABASE_URL") ||
+      "postgres://postgres:postgres@localhost:5432/kansoku_example_test",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 10
 

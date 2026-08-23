@@ -27,7 +27,7 @@ elixir scripts/kansoku_release_prep.exs 9.8.7 \
   --date 2026-07-12 \
   --notes-file "$workspace/release-notes.md"
 
-grep -Fq 'version: "9.8.7"' mix.exs
+grep -Eq '(@version|version:) "9\.8\.7"' mix.exs
 grep -Fq '{:kansoku, "~> 9.8.7"}' README.md
 grep -Fq '## Unreleased' CHANGELOG.md
 grep -Fq '## 9.8.7 - 2026-07-12' CHANGELOG.md

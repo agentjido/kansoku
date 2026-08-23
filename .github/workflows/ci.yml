@@ -1,230 +1,37 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+  merge_group:
+  push:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
+  actions: read
   contents: read
 
 env:
-  MIX_ENV: test
-  ELIXIR_VERSION: "1.19.5"
-  OTP_VERSION: "28.4.1"
+  ELIXIR_VERSION: "1.20"
+  OTP_VERSION: "29"
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
+  ci:
+    name: CI
+    uses: agentjido/github-actions/.github/workflows/jido-ci.yml@v5
+    secrets: inherit
+    with:
+      audit_command: mix deps.audit
+      docs_command: mix doctor --raise && mix docs -f html
+      test_command: mix coveralls
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Check Discord notification formatting
-        run: bash .github/tests/discord_notifications_test.sh
-
-      - name: Setup Elixir
-        uses: ./.github/actions/setup-elixir
-        with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Check release metadata preparation
-        run: bash .github/tests/release_prep_test.sh
-
-      - name: Check formatting
-        run: mix format --check-formatted
-
-      - name: Compile
-        run: mix compile --warnings-as-errors
-
-      - name: Run tests
-        run: mix coveralls.json
-
-      - name: Upload coverage to Codecov
-        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f
-        with:
-          files: ./cover/excoveralls.json
-          flags: elixir
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-  hex-package:
-    name: Hex Package
-    runs-on: ubuntu-latest
-    env:
-      MIX_ENV: dev
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Setup Elixir
-        uses: ./.github/actions/setup-elixir
-        with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Verify package and documentation
-        run: |
-          KANSOKU_JIZOKU_SOURCE=hex mix deps.get
-          KANSOKU_JIZOKU_SOURCE=hex mix hex.build --output /tmp/kansoku-hex-package.tar
-          HEX_API_KEY=invalid-dry-run-only KANSOKU_JIZOKU_SOURCE=hex mix hex.publish --dry-run --yes
-          KANSOKU_JIZOKU_SOURCE=hex mix docs
-
-  unused-deps:
-    name: Check Unused Dependencies
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Setup Elixir
-        uses: ./.github/actions/setup-elixir
-        with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Check for unused dependencies
-        run: mix deps.unlock --check-unused
-
-  credo:
-    name: Code Quality (Credo)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Setup Elixir
-        uses: ./.github/actions/setup-elixir
-        with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Compile
-        run: mix compile
-
-      - name: Run Credo
-        run: mix credo --strict
-
-  xref:
-    name: Static Analysis (xref)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Setup Elixir
-        uses: ./.github/actions/setup-elixir
-        with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Compile
-        run: mix compile
-
-      - name: Check compile-time dependency cycles
-        run: mix xref graph --format cycles --label compile-connected --fail-above 0
-
-  quality-gates:
-    name: Static Analysis (Quality Gates)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Setup Elixir
-        uses: ./.github/actions/setup-elixir
-        with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Compile
-        run: mix compile
-
-      - name: Run quality gates
-        run: mix quality_gates
-
-  docs:
-    name: Documentation Health (Doctor)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Setup Elixir
-        uses: ./.github/actions/setup-elixir
-        with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Compile
-        run: mix compile
-
-      - name: Run Doctor
-        run: mix doctor
-
-  dialyzer:
-    name: Static Analysis (Dialyzer)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Setup Elixir
-        uses: ./.github/actions/setup-elixir
-        with:
-          elixir-version: ${{ env.ELIXIR_VERSION }}
-          otp-version: ${{ env.OTP_VERSION }}
-
-      - name: Restore PLT cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: priv/plts
-          key: ${{ runner.os }}-dialyzer-v1-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-dialyzer-v1-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-
-
-      - name: Compile
-        run: mix compile
-
-      - name: Run Dialyzer
-        run: mix dialyzer
-
-  example-app:
-    name: Example App
-    runs-on: ubuntu-latest
+  package-checks:
+    name: Kansoku Package Checks
+    runs-on: ubuntu-24.04
     env:
       MIX_ENV: test
 
@@ -248,11 +55,22 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check repository automation
+        run: |
+          bash .github/tests/discord_notifications_test.sh
+          bash .github/tests/release_prep_test.sh
+
       - name: Setup Elixir
         uses: ./.github/actions/setup-elixir
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
           otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Run package-specific quality gates
+        run: |
+          mix xref graph --format cycles --label compile-connected --fail-above 0
+          mix brand.audit
+          mix quality_gates
 
       - name: Install example dependencies
         working-directory: examples/example_app
