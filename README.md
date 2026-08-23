@@ -372,4 +372,6 @@ New members can join through the [Jido Discord invite](https://jido.run/discord)
 
 ## License
 
-Apache-2.0
+Copyright 2026 Mike Hostetler
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
