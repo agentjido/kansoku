@@ -17,6 +17,30 @@ defmodule KansokuExample.JournalRunTest do
     :ok
   end
 
+  test "recurring monitor rolls over twice with bounded visible lineage" do
+    {:ok, first} =
+      Jizoku.start(
+        KansokuExample.Workflows.RecurringMonitor,
+        %{cycle: 1},
+        trigger: :recurring_monitor
+      )
+
+    for _ <- 1..10 do
+      Jizoku.execute_next(owner_id: "continuation-demo-test")
+    end
+
+    assert {:ok, chain} =
+             Jizoku.inspect_continuation_chain(first.run_id, direction: :forward, max_hops: 3)
+
+    assert Enum.map(chain.runs, & &1.status) == [:continued, :continued, :completed]
+    refute chain.truncated?
+    assert {:ok, first} = Jizoku.inspect_run(first.run_id)
+    assert first.continuation.continued_to.continuation_key == "cycle-1"
+    page = Kansoku.Runs.continuation_page(first.run_id, :forward, visibility_policy: :operator)
+    assert length(page.runs) == 3
+    assert page.next == nil
+  end
+
   test "drains approval follow-up work scheduled by manual review decisions" do
     {:ok, run} =
       Jizoku.start(

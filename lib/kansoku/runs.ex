@@ -70,6 +70,12 @@ defmodule Kansoku.Runs do
     end
   end
 
+  @doc "Loads at most ten visible runs in one continuation direction."
+  @spec continuation_page(String.t(), :forward | :backward, [option()]) :: map()
+  def continuation_page(run_id, direction, opts \\ []) do
+    Kansoku.Runs.Continuation.page(client(opts), run_id, direction, opts)
+  end
+
   defp load_timeline(client, run_id, jizoku_opts, snapshot) do
     if function_exported?(client, :inspect_run_timeline, 2) do
       case client.inspect_run_timeline(run_id, jizoku_opts) do

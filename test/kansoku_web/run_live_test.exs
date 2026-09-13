@@ -45,6 +45,101 @@ defmodule KansokuWeb.RunLiveTest do
     end)
   end
 
+  test "continuation card renders safe links and advances bounded pages" do
+    FakeJizokuClient.put_inspect_run(fn id, _opts ->
+      n = String.to_integer(id)
+      successor = if n < 12, do: %{run_id: to_string(n + 1), continuation_key: "roll-#{n}"}
+
+      {:ok,
+       %{
+         snapshot(:continued,
+           run_id: id,
+           workflow: "Recurring",
+           terminal?: true,
+           terminal_status: :continued,
+           anomalies: [%{reason: :conflicting_continuation, secret: "do-not-show"}]
+         )
+         | definition_version: "v1",
+           continuation: %{continued_from: nil, continued_to: successor}
+       }}
+    end)
+
+    FakeJizokuClient.put_inspect_run_graph(
+      {:ok, graph_inspection(:continued, run_id: "1", workflow: "Recurring")}
+    )
+
+    FakeJizokuClient.put_explain_run(
+      {:ok, diagnostic(:continued, run_id: "1", workflow: "Recurring")}
+    )
+
+    {:ok, mounted_socket} =
+      RunLive.mount(%{}, %{}, %Socket{assigns: %{__changed__: %{}, visibility_policy: :operator}})
+
+    {:noreply, socket} = RunLive.handle_params(%{"id" => "1"}, "/runs/1", mounted_socket)
+
+    html =
+      socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
+    assert html =~ "Continuation chain"
+    assert html =~ "roll-1"
+    assert html =~ "Conflicting continuation identity"
+    refute html =~ "do-not-show"
+    {:noreply, page_socket} = RunLive.handle_event("continuation_forward", %{}, socket)
+
+    assert Enum.map(page_socket.assigns.continuation_page.runs, & &1.run_id) ==
+             Enum.map(1..10, &to_string/1)
+
+    page_html =
+      page_socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
+    assert page_html =~ "Next ten runs"
+
+    {:noreply, next_socket} =
+      RunLive.handle_event("continuation_next", %{"next" => "untrusted"}, page_socket)
+
+    assert Enum.map(next_socket.assigns.continuation_page.runs, & &1.run_id) == ["11", "12"]
+    assert next_socket.assigns.continuation_page.next == nil
+
+    {:ok, first_run} = FakeJizokuClient.inspect_run("1", [])
+
+    FakeJizokuClient.put_inspect_run(fn
+      "1", _opts -> {:ok, first_run}
+      _id, _opts -> {:error, {:not_found, "private journal detail"}}
+    end)
+
+    {:noreply, missing_socket} = RunLive.handle_event("continuation_forward", %{}, next_socket)
+
+    missing_html =
+      missing_socket.assigns
+      |> RunLive.render()
+      |> rendered_to_string()
+
+    assert missing_html =~ "A linked run is unavailable"
+    refute missing_html =~ "private journal detail"
+
+    FakeJizokuClient.put_inspect_run({:error, :not_found})
+
+    {:noreply, unavailable_socket} =
+      RunLive.handle_event("continuation_refresh", %{}, missing_socket)
+
+    assert unavailable_socket.assigns.continuation_page.runs == []
+    assert unavailable_socket.assigns.continuation_page.run_id == "1"
+
+    FakeJizokuClient.put_inspect_run(
+      {:ok, %{first_run | continuation: %{continued_from: nil, continued_to: nil}}}
+    )
+
+    {:noreply, recovered_socket} =
+      RunLive.handle_event("continuation_refresh", %{}, unavailable_socket)
+
+    assert [%{run_id: "1"}] = recovered_socket.assigns.continuation_page.runs
+    assert recovered_socket.assigns.continuation_page.warning == nil
+  end
+
   test "renders run detail through the run context" do
     deadline = %{
       status: :overdue,

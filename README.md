@@ -80,6 +80,8 @@ Phoenix Host Application
 
 The UI includes:
 
+- Continue-as-new predecessor and successor links, continuation keys, and definition versions
+- Bounded continuation pages with at most ten visible runs, cycle detection, and unavailable-run warnings
 - Recent workflow runs sorted by update time
 - Status counts and filters
 - Shareable URL filters for workflow, status, terminal state, queue, time window,
@@ -330,6 +332,11 @@ mounts Kansoku at `/kansoku` and seeds real Jizoku workflows that produce
 completed, failed, retrying, paused, approval-paused, and saga recovery runs.
 It also configures a host-owned runtime-spec catalog exposed from the `/kansoku`
 dashboard drawer.
+The recurring monitor rolls over twice before completing. Open a continued run
+to follow earlier or later runs through the continuation card. Each chain page
+uses visibility-redacted public snapshots; it never reads dispatch storage.
+A missing neighbor is reported as unavailable, not proof of a failed rollover.
+
 The saga recovery run includes a compensatable inventory reservation step so
 the dashboard can show declared rollback metadata and recovery policy
 diagnostics without calling rollback code. The example server also starts a
