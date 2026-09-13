@@ -230,6 +230,7 @@ defmodule Kansoku.Runs.RunDetail do
           live_claims: [LiveClaim.t()],
           timeline: Timeline.t(),
           timeline_partial?: boolean(),
+          continuation: map(),
           controls_allowed?: boolean()
         }
 
@@ -242,6 +243,7 @@ defmodule Kansoku.Runs.RunDetail do
     :graph_inspection,
     :workflow_graph,
     :timeline,
+    continuation: %{},
     controls_allowed?: false,
     timeline_partial?: false,
     recovery_policies: [],
@@ -299,6 +301,7 @@ defmodule Kansoku.Runs.RunDetail do
 
     %__MODULE__{
       summary: summary,
+      continuation: Kansoku.Runs.Continuation.project(snapshot),
       payload: snapshot.input,
       context: snapshot.context,
       last_error: latest_error(snapshot.attempts),

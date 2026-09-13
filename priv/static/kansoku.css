@@ -1296,7 +1296,8 @@ body.kansoku-document:has(.kansoku-theme-dark) {
   text-transform: uppercase;
 }
 
-.kansoku-badge-completed {
+.kansoku-badge-completed,
+.kansoku-badge-continued {
   background: var(--kansoku-success-muted);
   border-color: var(--kansoku-success);
   color: var(--kansoku-success);
@@ -3024,4 +3025,21 @@ body.kansoku-document:has(.kansoku-theme-dark) {
     padding-left: 8px;
     padding-right: 8px;
   }
+}
+
+.kansoku-continuation-card {
+  margin-bottom: var(--kansoku-space-5);
+  overflow-wrap: anywhere;
+  padding: var(--kansoku-space-5) var(--kansoku-space-6);
+}
+
+.kansoku-continuation-card ol {
+  display: grid;
+  gap: var(--kansoku-space-3);
+  padding-left: var(--kansoku-space-5);
+}
+
+.kansoku-continuation-card [role="status"] {
+  border-left: 3px solid var(--kansoku-border-strong);
+  padding-left: var(--kansoku-space-3);
 }

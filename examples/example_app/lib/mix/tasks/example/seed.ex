@@ -55,6 +55,7 @@ defmodule Mix.Tasks.Example.Seed do
     unique = System.system_time(:millisecond)
 
     [
+      {KansokuExample.Workflows.RecurringMonitor, :recurring_monitor, %{cycle: 1}},
       {KansokuExample.Workflows.CompletedCheckout, :completed_checkout,
        %{order_id: "order-complete-#{unique}", customer_id: "cust_demo"}},
       {KansokuExample.Workflows.FailingCheckout, :failing_checkout,
@@ -263,7 +264,7 @@ defmodule Mix.Tasks.Example.Seed do
   defp settled_status?(%{status: :running, reason: :deferred_continuation}), do: true
 
   defp settled_status?(%{status: status})
-       when status in [:completed, :failed, :retrying, :paused],
+       when status in [:completed, :continued, :failed, :retrying, :paused],
        do: true
 
   defp settled_status?(_run), do: false

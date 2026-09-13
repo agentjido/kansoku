@@ -6,8 +6,8 @@ defmodule Kansoku.Dashboard do
   alias Kansoku.OperatorQueues
   alias Kansoku.Runs
 
-  @statuses [:completed, :failed, :retrying, :paused, :running]
-  @terminal_statuses [:completed, :failed, :cancelled]
+  @statuses [:completed, :continued, :failed, :retrying, :paused, :running]
+  @terminal_statuses [:completed, :continued, :failed, :cancelled]
   @deadline_statuses [:on_time, :due_soon, :overdue, :escalated]
   @time_windows [:"1h", :"24h", :"7d", :"30d"]
   @manual_states [:waiting, :none]

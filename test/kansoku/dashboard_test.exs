@@ -9,6 +9,22 @@ defmodule Kansoku.DashboardTest do
 
   @loaded_at ~U[2026-05-15 10:30:00Z]
 
+  test "continued runs are counted and selectable as terminal runs" do
+    FakeJizokuClient.put_list_runs(
+      {:ok, [summary(:continued, terminal_status: :continued), summary(:running)]}
+    )
+
+    dashboard =
+      Dashboard.load(
+        client: FakeJizokuClient,
+        filters: %{"status" => "continued", "terminal" => "continued"}
+      )
+
+    assert dashboard.status_counts.continued == 1
+    assert :continued in dashboard.terminal_statuses
+    assert [%{status: :continued, terminal_status: :continued}] = dashboard.runs
+  end
+
   test "loads recent runs with status counts" do
     FakeJizokuClient.put_list_runs(
       {:ok,

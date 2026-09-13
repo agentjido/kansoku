@@ -5,6 +5,8 @@ defmodule KansokuWeb.RunLive do
 
   use KansokuWeb, :live_view
 
+  import KansokuWeb.ContinuationComponents
+
   alias Kansoku.Runs
 
   @run_refresh_interval_ms 1_000
@@ -24,6 +26,8 @@ defmodule KansokuWeb.RunLive do
      |> assign(:visibility_actor, Map.get(socket.assigns, :visibility_actor, "kansoku"))
      |> assign(:visibility_policy, Map.get(socket.assigns, :visibility_policy, :auditor))
      |> assign(:page_title, "Kansoku Run")
+     |> assign(:continuation_page, nil)
+     |> assign(:continuation_direction, :forward)
      |> assign(:theme, :system)
      |> assign(:active_tab, :overview)
      |> assign(:partial_timeline_refresh_attempts, 0)
@@ -41,6 +45,24 @@ defmodule KansokuWeb.RunLive do
      |> assign(:workflow_panel_view, workflow_panel_view(active_tab))
      |> maybe_assign_run(run_id, new_run?)
      |> maybe_schedule_run_refresh(new_run?)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event(event, _params, socket)
+      when event in ["continuation_forward", "continuation_backward"] do
+    direction = if event == "continuation_forward", do: :forward, else: :backward
+    {:noreply, load_continuation_page(socket, socket.assigns.run_id, direction)}
+  end
+
+  @impl Phoenix.LiveView
+  def handle_event("continuation_next", _params, socket) do
+    case socket.assigns.continuation_page do
+      %{next: next} when is_binary(next) ->
+        {:noreply, load_continuation_page(socket, next, socket.assigns.continuation_direction)}
+
+      _other ->
+        {:noreply, socket}
+    end
   end
 
   @impl Phoenix.LiveView
@@ -212,6 +234,11 @@ defmodule KansokuWeb.RunLive do
         <%= if @load_error do %>
           <.dashboard_error error={@load_error} />
         <% else %>
+          <.continuation_card
+            continuation={@detail.continuation}
+            page={@continuation_page}
+            prefix={@prefix}
+          />
           <.run_detail
             detail={@detail}
             prefix={@prefix}
@@ -232,6 +259,18 @@ defmodule KansokuWeb.RunLive do
      |> schedule_run_refresh()}
   end
 
+  defp load_continuation_page(socket, run_id, direction) do
+    page =
+      Runs.continuation_page(run_id, direction,
+        visibility_actor: socket.assigns.visibility_actor,
+        visibility_policy: socket.assigns.visibility_policy
+      )
+
+    socket
+    |> assign(:continuation_direction, direction)
+    |> assign(:continuation_page, page)
+  end
+
   defp assign_run(socket, run_id) do
     case Runs.get_run(run_id,
            visibility_actor: socket.assigns.visibility_actor,
@@ -247,9 +286,20 @@ defmodule KansokuWeb.RunLive do
         |> assign(:detail, detail)
         |> assign(:partial_timeline_refresh_attempts, partial_timeline_refresh_attempts)
         |> assign(:load_error, nil)
+        |> refresh_continuation_page()
 
       {:error, reason} ->
         retain_or_assign_run_error(socket, run_id, reason)
+    end
+  end
+
+  defp refresh_continuation_page(socket) do
+    case socket.assigns.continuation_page do
+      %{runs: [%{run_id: first} | _rest]} ->
+        load_continuation_page(socket, first, socket.assigns.continuation_direction)
+
+      _other ->
+        socket
     end
   end
 
@@ -294,7 +344,12 @@ defmodule KansokuWeb.RunLive do
   defp maybe_schedule_run_refresh(socket, true), do: schedule_run_refresh(socket)
   defp maybe_schedule_run_refresh(socket, false), do: socket
 
-  defp maybe_assign_run(socket, run_id, true), do: assign_run(socket, run_id)
+  defp maybe_assign_run(socket, run_id, true) do
+    socket
+    |> assign(:continuation_page, nil)
+    |> assign_run(run_id)
+  end
+
   defp maybe_assign_run(socket, _run_id, false), do: socket
 
   defp refreshable_run?(%{

@@ -14,6 +14,7 @@ config :kansoku_example, KansokuExampleWeb.Endpoint,
   live_view: [signing_salt: "kansoku-example"]
 
 config :jizoku,
+  continuation_fences: :enabled,
   repo: KansokuExample.Repo,
   executor: KansokuExample.JizokuExecutor
 
