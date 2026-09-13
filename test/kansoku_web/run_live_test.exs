@@ -120,6 +120,24 @@ defmodule KansokuWeb.RunLiveTest do
 
     assert missing_html =~ "A linked run is unavailable"
     refute missing_html =~ "private journal detail"
+
+    FakeJizokuClient.put_inspect_run({:error, :not_found})
+
+    {:noreply, unavailable_socket} =
+      RunLive.handle_event("continuation_refresh", %{}, missing_socket)
+
+    assert unavailable_socket.assigns.continuation_page.runs == []
+    assert unavailable_socket.assigns.continuation_page.run_id == "1"
+
+    FakeJizokuClient.put_inspect_run(
+      {:ok, %{first_run | continuation: %{continued_from: nil, continued_to: nil}}}
+    )
+
+    {:noreply, recovered_socket} =
+      RunLive.handle_event("continuation_refresh", %{}, unavailable_socket)
+
+    assert [%{run_id: "1"}] = recovered_socket.assigns.continuation_page.runs
+    assert recovered_socket.assigns.continuation_page.warning == nil
   end
 
   test "renders run detail through the run context" do

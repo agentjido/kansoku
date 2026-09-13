@@ -53,6 +53,11 @@ defmodule KansokuWeb.ContinuationComponents do
       </div>
       <div :if={@page} id="continuation-page" aria-live="polite">
         <p>Up to ten runs per page. Select a run to inspect it.</p>
+        <button
+          class="kansoku-control-button kansoku-control-button-secondary"
+          type="button"
+          phx-click="continuation_refresh"
+        >Refresh chain page</button>
         <p :if={@page.warning} role="status">{@page.warning}</p>
         <ol>
           <li :for={run <- @page.runs}>

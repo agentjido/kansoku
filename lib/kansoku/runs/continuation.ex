@@ -5,6 +5,7 @@ defmodule Kansoku.Runs.Continuation do
   alias Jizoku.ReadModel.Visibility
 
   @page_size 10
+  @cycle_warning "Continuation cycle detected. Ask the runtime operator to inspect the chain."
 
   @doc "Projects safe lineage identifiers and fixed diagnostic messages."
   @spec project(Snapshot.t()) :: map()
@@ -23,32 +24,23 @@ defmodule Kansoku.Runs.Continuation do
   @doc "Loads a fixed-size page, applying the host visibility policy to every run."
   @spec page(module(), String.t(), :forward | :backward, keyword()) :: map()
   def page(client, run_id, direction, opts) when direction in [:forward, :backward] do
-    result =
-      load(client, run_id, direction, opts, %{runs: [], next: nil, warning: nil}, %{})
+    read_options = %{
+      runtime: Keyword.get(opts, :jizoku, []),
+      actor: Keyword.get(opts, :visibility_actor, "kansoku"),
+      policy: Keyword.get(opts, :visibility_policy, :auditor)
+    }
+
+    initial_page = %{run_id: run_id, runs: [], next: nil, warning: nil}
+    result = read_next(client, run_id, direction, read_options, initial_page, %{})
 
     %{result | runs: Enum.reverse(result.runs)}
   end
 
-  defp load(client, run_id, direction, opts, page, seen) do
-    if Map.has_key?(seen, run_id) do
-      %{
-        page
-        | warning: "Continuation cycle detected. Ask the runtime operator to inspect the chain."
-      }
-    else
-      read_next(client, run_id, direction, opts, page, seen)
-    end
-  end
-
   defp read_next(client, run_id, direction, opts, page, seen) do
     with {:ok, %Snapshot{run_id: ^run_id} = snapshot} <-
-           client.inspect_run(run_id, Keyword.get(opts, :jizoku, [])),
+           client.inspect_run(run_id, opts.runtime),
          {:ok, visible} <-
-           Visibility.redact(
-             snapshot,
-             Keyword.get(opts, :visibility_actor, "kansoku"),
-             Keyword.get(opts, :visibility_policy, :auditor)
-           ) do
+           Visibility.redact(snapshot, opts.actor, opts.policy) do
       row = project(visible)
       page = %{page | runs: [row | page.runs]}
       next = Map.get(row, if(direction == :forward, do: :successor, else: :predecessor))
@@ -66,10 +58,15 @@ defmodule Kansoku.Runs.Continuation do
   defp advance(_client, nil, _direction, _opts, page, _seen), do: page
 
   defp advance(client, %{run_id: next}, direction, opts, page, seen) do
-    if length(page.runs) == @page_size do
-      %{page | next: next}
-    else
-      load(client, next, direction, opts, page, seen)
+    cond do
+      Map.has_key?(seen, next) ->
+        %{page | warning: @cycle_warning}
+
+      map_size(seen) == @page_size ->
+        %{page | next: next}
+
+      true ->
+        read_next(client, next, direction, opts, page, seen)
     end
   end
 

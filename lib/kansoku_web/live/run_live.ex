@@ -66,6 +66,11 @@ defmodule KansokuWeb.RunLive do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("continuation_refresh", _params, socket) do
+    {:noreply, refresh_continuation_page(socket)}
+  end
+
+  @impl Phoenix.LiveView
   def handle_event("set_theme", %{"theme" => theme}, socket) do
     {:noreply, assign(socket, :theme, normalize_theme(theme))}
   end
@@ -295,7 +300,7 @@ defmodule KansokuWeb.RunLive do
 
   defp refresh_continuation_page(socket) do
     case socket.assigns.continuation_page do
-      %{runs: [%{run_id: first} | _rest]} ->
+      %{run_id: first} ->
         load_continuation_page(socket, first, socket.assigns.continuation_direction)
 
       _other ->
@@ -315,7 +320,9 @@ defmodule KansokuWeb.RunLive do
         socket.assigns.partial_timeline_refresh_attempts
       end
 
-    assign(socket, :partial_timeline_refresh_attempts, attempts)
+    socket
+    |> assign(:partial_timeline_refresh_attempts, attempts)
+    |> refresh_continuation_page()
   end
 
   defp retain_or_assign_run_error(socket, run_id, reason) do
