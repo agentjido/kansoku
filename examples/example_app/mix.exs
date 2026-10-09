@@ -32,6 +32,7 @@ defmodule KansokuExample.MixProject do
 
   defp deps do
     [
+      {:jido, "~> 2.4"},
       {:phoenix, "~> 1.8.9"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_view, "~> 1.2.6"},
