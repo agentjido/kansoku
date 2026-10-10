@@ -26,7 +26,7 @@ jobs:
     secrets: inherit
     with:
       audit_command: mix deps.audit
-      docs_command: mix doctor --raise && mix docs -f html
+      docs_command: mix doctor --raise && mix docs -f html -f markdown
       test_command: mix coveralls
 
   package-checks:
