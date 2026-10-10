@@ -377,6 +377,10 @@ For informal runtime and Jido-adjacent chat, use the
 [Jizoku channel on the Jido Discord](https://discord.com/channels/1323353012235796550/1504122798027571331).
 New members can join through the [Jido Discord invite](https://jido.run/discord).
 
+## Local Documentation
+
+Run `mix docs` to generate HTML and Markdown documentation in `doc/`, including Markdown pages and `llms.txt`.
+
 ## License
 
 Copyright 2026 Mike Hostetler
