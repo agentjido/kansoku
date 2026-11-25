@@ -80,10 +80,13 @@ defmodule Kansoku.MixProject do
 
   defp deps do
     [
+      {:db_connection, "~> 2.10 and >= 2.10.3"},
+      {:ecto, "~> 3.14 and >= 3.14.3"},
       {:jido, "~> 2.4"},
-      {:phoenix, "~> 1.8.9"},
+      {:phoenix, "~> 1.8.17"},
       {:phoenix_html, "~> 4.1"},
-      {:phoenix_live_view, "~> 1.2.6"},
+      {:phoenix_live_view, "~> 1.2.14"},
+      {:plug, "~> 1.20 and >= 1.20.4"},
       {:jason, "~> 1.4"},
       {:jizoku, "~> 0.4.0"},
       {:ex_slop, "~> 0.4.2", only: [:dev, :test], runtime: false},
