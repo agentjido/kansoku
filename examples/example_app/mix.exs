@@ -40,7 +40,7 @@ defmodule KansokuExample.MixProject do
       {:bandit, "~> 1.7"},
       {:ecto_sql, "~> 3.13"},
       {:postgrex, "~> 0.20"},
-      {:jizoku, "~> 0.4.0"},
+      {:jizoku, "~> 0.4.0 or ~> 0.5.0"},
       {:kansoku, path: "../.."}
     ]
   end
