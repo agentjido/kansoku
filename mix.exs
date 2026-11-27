@@ -1,7 +1,7 @@
 defmodule Kansoku.MixProject do
   use Mix.Project
 
-  @version "0.4.0"
+  @version "0.5.0"
   @source_url "https://github.com/agentjido/kansoku"
   @description "Embeddable runtime dashboard for Jizoku."
 
@@ -88,7 +88,7 @@ defmodule Kansoku.MixProject do
       {:phoenix_live_view, "~> 1.2.14"},
       {:plug, "~> 1.20 and >= 1.20.4"},
       {:jason, "~> 1.4"},
-      {:jizoku, "~> 0.4.0"},
+      {:jizoku, "~> 0.4.0 or ~> 0.5.0"},
       {:ex_slop, "~> 0.4.2", only: [:dev, :test], runtime: false},
       {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
       {:reach, "~> 2.7", only: [:dev, :test], runtime: false},

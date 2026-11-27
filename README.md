@@ -124,7 +124,7 @@ Add Kansoku to the host application's dependencies:
 ```elixir
 def deps do
   [
-    {:kansoku, "~> 0.4.0"}
+    {:kansoku, "~> 0.5.0"}
   ]
 end
 ```
